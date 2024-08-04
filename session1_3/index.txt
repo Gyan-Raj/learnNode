@@ -1,0 +1,30 @@
+Till now, we have a basic server ready for which we have used 
+
+const PORT=8082
+const http=require("http);
+const server=http.createServer((res,req)=>{
+    res.writeHead(statusCode,contentType)   //statusCode like 200,404 etc; contentType like {"Content-Type": "application/json"}
+    res.write(`should be a string`)
+    res.end()
+})
+server.listen(PORT,()=>{})
+
+and in .rest file:
+GET http://localhost:8082
+
+
+<<<---------------------------------------------------------------------------->>>
+
+
+//But right now, we only have ONE fixed response
+//What if we could change the response, depending on parameters => How will the server know what kind of request is received from the client or at which endpoint? => For this, we have Request Object
+
+So now to distinguish the response based on what endpoint is being hit, we can use the url property of the request
+req.url - contains the url of the request, i.e., path of url
+
+So, till now, when we send request (from requests.rest file) at any url path (http://localhost:8082 or http://localhost:8082/users or any other path, we will get the same response)
+
+So, in this folder, we will only try to console the req.url() and this time let us send an object as response (in res.write()). But as response can only be string so we basically need to stringify the object
+
+//we will be using req.url in session1_4
+

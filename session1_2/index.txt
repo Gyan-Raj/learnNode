@@ -16,9 +16,12 @@ const server = http.createServer((req, res) => {
   res.write(`${date}, ${time}`); //To specify the type of content, we have a function writeHead() where we can specify Headers (like “Content-Type”) and the status code for the request
 
   res.end();
-  //we can also write re.write() and res.end() in single line, as : res.end(`${date}, ${time}`);
 });
 
 server.listen(PORT, () => {
   console.log(`Server listening on port: ${PORT}`);
 });
+
+
+GET http://localhost:8082
+###
