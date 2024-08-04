@@ -1,2 +1,8 @@
 GET http://localhost:8082
 ###
+# we never got any response, and the server/postman kept on sending request, forever :(
+# The reason is we never specified what “response” to send back to the client.
+# so, we need to add a response, in createServer callback (index.js)
+# In the createServer callback we can pass in two special arguments - req for Request Object, and res from Response Object
+# Also, the res object has a special function end() which we can call to mark the end of the response. This will make sure the request is completed.
+# we will see this in session1_1
