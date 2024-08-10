@@ -17,7 +17,8 @@ const server = http.createServer((req, res) => {
       res.write(JSON.stringify(currensiesJSON));
       break;
     default:
-      res.writeHead(404);
+      res.writeHead(404, { "content-type": "text/html", "x-req-id": reqId });
+      res.write(JSON.stringify({ message: `${req.url} does not exist` }));
   }
   res.end();
 });

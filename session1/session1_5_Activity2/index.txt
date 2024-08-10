@@ -1,0 +1,55 @@
+Till now, we used switch-case to send a response conditionally according to value of req.url 
+
+const http = require("http");
+const crypto = require("crypto");
+const currensiesJSON = require("./currencies.json");
+const PORT = 8082;
+const server = http.createServer((req, res) => {
+  let reqId = crypto.randomUUID();
+  switch (req.url) {
+    case "/":
+      res.writeHead(200, { "content-type": "text/html", "x-req-id": reqId });
+      res.write(`<h1>Currency Database</h1>`);
+      break;
+    case "/currencies":
+      res.writeHead(200, {
+        "content-type": "application/json",
+        "x-req-id": reqId,
+      });
+      res.write(JSON.stringify(currensiesJSON));
+      break;
+    default:
+      res.writeHead(404, { "content-type": "text/html", "x-req-id": reqId });
+      res.write(JSON.stringify({ message: `${req.url} does not exist` }));
+  }
+  res.end();
+});
+server.listen(PORT, () => {
+  console.log(`Server listening on port: ${PORT}`);
+});
+
+
+and in .rest file:
+GET http://localhost:8082/
+###
+GET http://localhost:8082/currencies
+###
+
+
+<<<---------------------------------------------------------------------------->>>
+
+Now, we will be doing another activity:
+  Add a new route /currencies/:symbol -> returns the object for the symbol with status code 200, and if object not found, then 404 and response {message: “Invalid Symbol”}
+
+  Example - A call at /currencies/inr -> {"id": "INR", "name": "Indian Rupee","min_size": "0.01000000"}
+
+  Console log to find which URL is being called.
+
+BUT BUT BUT: imagine the case where we have hundreds of route:
+  -using these switch cases will be very complicated
+  -it is pretty complicated to handle all with bare http module.
+  -their maintainability as well as readability will be too low
+
+This is where a framework comes in picture which will ease our task
+
+The framework we are going to use is Express
