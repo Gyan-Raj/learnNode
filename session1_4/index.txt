@@ -7,3 +7,59 @@ const crypto = require("crypto");
 res.writeHead(200, { "Content-Type": "application/json" ,"x-req-id":reqId});
 
 2. now we will be working on how to change the response, depending on parameters => How will the server know what kind of request is received from the client or at which endpoint? => So, till now, when we send request (from requests.rest file) at any url path (http://localhost:8082 or http://localhost:8082/users or any other path, we will get the same response)=> i.e., we will be learning about use of Request object (basically the req.url method)
+
+    //if we hit a GET request at http://localhost:8082/users or http://localhost:8082/users, and also try to console req.url in http.createServer((res, req)=>console.log(req.url)), it will give us / and /users as an output respectively=> it means that req.url indicates the path of the request
+    //So, depending upon whether req.url==="/" or req.url==="/users", we can send the response accordingly (NOTE that currently we are getting same response for any url path (i.e., currently, we are getting same response for / as well as /users))
+
+    //So, we will be sending serverInfo at "/", a html file at "/users" and a status code of 400 at any oyher path
+
+let PORT = 8082;
+
+const http = require("http");
+const crypto = require("crypto");
+
+const server = http.createServer((req, res) => {
+  let reqId = crypto.randomUUID();
+  console.log(reqId);
+  if (req.url === "/") {
+    const serverInfo = {
+      serverName: "Session1_4 server",
+      version: "1.0.0",
+      currentDate: new Date().toDateString(),
+      currentTime: new Date().toTimeString(),
+    };
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "x-req-id": reqId,
+    });
+    res.write(JSON.stringify(serverInfo));
+  } else if (req.url === "/users") {
+    res.writeHead(200, { "Content-Type": "text/html", "x-req-id": reqId });
+    res.write(`
+      <h1>Hello Users</h1>
+      <ul>
+        <li>User1</li>
+        <li>User2</li>
+        <li>User3</li>
+      </ul>
+      `);
+  } else {
+    res.writeHead(400, { "Content-Type": "text/html", "x-req-id": reqId });
+    res.write(`
+      <h1>Page not found</h1>
+      `);
+  }
+  res.end();
+});
+
+server.listen(PORT, () => {
+  console.log(`Server listening on port: ${PORT}`);
+});
+
+
+GET http://localhost:8082/
+###
+GET http://localhost:8082/users
+###
+GET http://localhost:8082/products
+###
