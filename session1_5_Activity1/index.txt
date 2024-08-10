@@ -1,0 +1,98 @@
+Till now, we have a basic server ready which can be used to send a response conditionally using req.url 
+
+let PORT = 8082;
+
+const http = require("http");
+const crypto = require("crypto");
+
+const server = http.createServer((req, res) => {
+  let reqId = crypto.randomUUID();
+  console.log(reqId);
+  if (req.url === "/") {
+    const serverInfo = {
+      serverName: "Session1_4 server",
+      version: "1.0.0",
+      currentDate: new Date().toDateString(),
+      currentTime: new Date().toTimeString(),
+    };
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "x-req-id": reqId,
+    });
+    res.write(JSON.stringify(serverInfo));
+  } else if (req.url === "/users") {
+    res.writeHead(200, { "Content-Type": "text/html", "x-req-id": reqId });
+    res.write(`
+      <h1>Hello Users</h1>
+      <ul>
+        <li>User1</li>
+        <li>User2</li>
+        <li>User3</li>
+      </ul>
+      `);
+  } else {
+    res.writeHead(400, { "Content-Type": "text/html", "x-req-id": reqId });
+    res.write(`
+      <h1>Page not found</h1>
+      `);
+  }
+  res.end();
+});
+
+server.listen(PORT, () => {
+  console.log(`Server listening on port: ${PORT}`);
+});
+
+and in .rest file:
+GET http://localhost:8082/
+###
+GET http://localhost:8082/users
+###
+GET http://localhost:8082/products
+###
+
+
+<<<---------------------------------------------------------------------------->>>
+
+Now, we will be doing an activity:
+Create 2 routes for our server (Using Switch case, as it is better than if-else if we have multiple conditions)
+  "/"  Returns <h1>Currency Database</h1>
+  "/currencies"  Returns the JSON object (Use the Currency Data JSON object given here - https://api.coinbase.com/v2/currencies) to the client with status code 200
+  For other routes, send a status code of 404
+
+
+const http = require("http");
+const crypto = require("crypto");
+const currensiesJSON = require("./currencies.json");
+const PORT = 8082;
+const server = http.createServer((req, res) => {
+  let reqId = crypto.randomUUID();
+  switch (req.url) {
+    case "/":
+      res.writeHead(200, { "content-type": "text/html", "x-req-id": reqId });
+      res.write(`<h1>Currency Database</h1>`);
+      break;
+    case "/currencies":
+      res.writeHead(200, {
+        "content-type": "application/json",
+        "x-req-id": reqId,
+      });
+      res.write(JSON.stringify(currensiesJSON));
+      break;
+    default:
+      res.writeHead(404);
+  }
+  res.end();
+});
+server.listen(PORT, () => {
+  console.log(`Server listening on port: ${PORT}`);
+});
+
+
+and in .rest file:
+GET http://localhost:8082/
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currency
+###
