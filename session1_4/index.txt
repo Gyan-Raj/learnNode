@@ -1,0 +1,9 @@
+1. inside .writeHead(), where we are sending the status code and content type, we can also pass any custom data
+    //by convention, it must start with "x", like(x-reqId, or x-value etc)
+    //let us send a unique id
+    //which we are going to use "crypto" which is a standard node module which comes with node and is used to generate a unique id
+    
+const crypto = require("crypto");
+res.writeHead(200, { "Content-Type": "application/json" ,"x-req-id":reqId});
+
+2. now we will be working on how to change the response, depending on parameters => How will the server know what kind of request is received from the client or at which endpoint? => So, till now, when we send request (from requests.rest file) at any url path (http://localhost:8082 or http://localhost:8082/users or any other path, we will get the same response)=> i.e., we will be learning about use of Request object (basically the req.url method)
