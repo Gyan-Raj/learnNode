@@ -86,3 +86,11 @@ app.get("/currencies/:symbol", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server listening at port: ${PORT}`);
 });
+
+and in .rest file:
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies/inr
+###

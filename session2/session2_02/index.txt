@@ -1,52 +1,54 @@
-Till now, we have a basic server ready which can be used to send a response conditionally using req.url and switch-case
+Till now, we saw how express framework works and how easy it makes to route different paths including dynamic routing
+  -we will be using req.params for dynamic routing
 
-const http = require("http");
-const crypto = require("crypto");
-const currensiesJSON = require("./currencies.json");
+
+const express = require("express");
+const app = express(); //will create an application with express
 const PORT = 8082;
+const currenciesJSON = require("./currencies.json");
 
-const server = http.createServer((req, res) => {
-  const reqId = crypto.randomUUID();
-  switch (req.url) {
-    case "/":
-      res.writeHead(200, {
-        "content-type": "text/html",
-        "x-req-id": reqId,
-      });
-      res.write(`<h1>Currency Database</h1>`);
-      break;
-    case "/currencies":
-      res.writeHead(200, {
-        "content-type": "application/json",
-        "x-req-id": reqId,
-      });
-      res.write(JSON.stringify(currensiesJSON));
-      break;
-    default:
-      res.writeHead(404, {
-        "content-type": "application/json",
-        "x-req-id": reqId,
-      });
-      res.write(JSON.stringify({ message: `${req.url} does not exist` }));
+app.get("/", (req, res) => {
+  res
+    .header({ "content-type": "text/html" })
+    .send(`<h1>Currency Database</h1>`);
+});
+app.get("/currencies", (req, res) => {
+  res.header({ "content-type": "application/json" }).send(currenciesJSON); //we don't have to stringify even, as express will do it implicitly
+});
+app.get("/currencies/:symbol", (req, res) => {
+  console.log(req.params); //this will give us the parameter passed, and depending upon that we will return a response. //for http://localhost:8082/currencies/inr, it will console an object with key called "symbol" and value as "inr", i.e., {symbol:"inr"}
+  console.log(req.params); //for http://localhost:8082/currencies/inr, it will console "inr"
+  //So, now we need to match this params from our database and just need to return that object
+  //we will be using find() function as we are searching for something which is unique
+  //So, as currenciesJSON is an object with key called "data", and that data is an array of objects, so will implement find() (which is an array method and not an object method) on currenciesJSON.data (which is an array) and on just on currenciesJSON (which is an object)
+
+  const { symbol } = req.params;
+  const reqCurr = currenciesJSON.data.find(
+    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
+  );
+  if (reqCurr) {
+    return res.header({ "content-type": "application/json" }).send(reqCurr);
+  } else {
+    return res.sendStatus(404);
   }
-  res.end();
+});
+//we don't have to write default case. If path is something other than "/" or "/currencies", express will automatically return 404
+
+app.listen(PORT, () => {
+  console.log(`Server listening at port: ${PORT}`);
 });
 
-server.listen(PORT, () => {
-  console.log(`Server listening at port : ${PORT}`);
-});
 
 and in .rest file:
-GET http://localhost:8082/
+GET http://localhost:8082
 ###
 GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies/inr
 ###
 
 
 <<<---------------------------------------------------------------------------->>>
 
-Now, we will see how express framework works and how easy it makes to route different paths including dynamic routing
-  -we will implememnt the same using express
-  -we will also implememnt a dynamic route path which is /currencies/:symbol
-
-first install express (npm i express)
+Now, we will try to filter and get the data from currenciesJSON database, depending upon the min_value  
+  -we will be using req.query for query paramaters

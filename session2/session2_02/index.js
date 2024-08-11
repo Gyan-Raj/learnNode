@@ -9,15 +9,23 @@ app.get("/", (req, res) => {
     .send(`<h1>Currency Database</h1>`);
 });
 app.get("/currencies", (req, res) => {
-  res.header({ "content-type": "application/json" }).send(currenciesJSON); //we don't have to stringify even, as express will do it implicitly
-});
-app.get("/currencies/:symbol", (req, res) => {
-  console.log(req.params); //this will give us the parameter passed, and depending upon that we will return a response. //for http://localhost:8082/currencies/inr, it will console an object with key called "symbol" and value as "inr", i.e., {symbol:"inr"}
-  console.log(req.params); //for http://localhost:8082/currencies/inr, it will console "inr"
-  //So, now we need to match this params from our database and just need to return that object
-  //we will be using find() function as we are searching for something which is unique
-  //So, as currenciesJSON is an object with key called "data", and that data is an array of objects, so will implement find() (which is an array method and not an object method) on currenciesJSON.data (which is an array) and on just on currenciesJSON (which is an object)
+  console.log(req.query); //this will give us the query parameters passed, and depending upon that we will return a response. //for http://localhost:8082/currencies?min_value=0.001, it will console an object as: {min_value:"0.001"}. Similarly, for http://localhost:8082/currencies?min_value=0.001&max_value=0.01, it will console an object as: {min_value:"0.001", max_value:"0.01"}
+  console.log(req.query.min_value); //for http://localhost:8082/currencies?min_value=0.001, it will give output as "0.001"
+  const { min_value } = req.query;
 
+  if (min_value) {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value)); //we have to be careful in using ===. Since, we can see that in currenciesJSON file, min_size is a string as well as we know that req (or url path) is also a string, so it will not give a problem. But, we have to cross check for cases when the data type of query parameter (which is always a string) and value in database are not the same.
+    //NOTE: we will not have to check this when we will be directly interacting with actual databases as databases have their own queries, where we can directly query the database instead of getting entire information and then filtering it.
+  } else {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data);
+  }
+});
+
+app.get("/currencies/:symbol", (req, res) => {
   const { symbol } = req.params;
   const reqCurr = currenciesJSON.data.find(
     (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
@@ -25,10 +33,9 @@ app.get("/currencies/:symbol", (req, res) => {
   if (reqCurr) {
     return res.header({ "content-type": "application/json" }).send(reqCurr);
   } else {
-    return res.sendStatus(404);
+    return res.status(404).send({ message: "invalid symbol" });
   }
 });
-//we don't have to write default case. If path is something other than "/" or "/currencies", express will automatically return 404
 
 app.listen(PORT, () => {
   console.log(`Server listening at port: ${PORT}`);
