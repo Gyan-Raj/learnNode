@@ -122,6 +122,7 @@ const getCurrencies = (req, res) => {
       .send(currenciesJSON.data);
   }
 };
+
 const getCurrencyBySymbol = (req, res) => {
   const { symbol } = req.params;
   const reqCurr = currenciesJSON.data.find(
@@ -149,6 +150,7 @@ GET http://localhost:8082/currencies/inr
 
 
 <<<---------------------------------------------------------------------------->>>
+
 
 We can also use normal export-import, but that is part of ES modules(esm), and what we saw was Common js (cjs) module.
 So, session2_03_esm is just to show how we can use import-export in esm

@@ -166,6 +166,7 @@ GET http://localhost:8082/currencies/inr
 Also, @line:110 we have to write extension for js file, i.e., we have to tell javascript that this file is a javascript file. 
 
 
-NOTE: ES module is modern way of writing code, and common js is older way. However, for this sprint we will be using common js as most of the code is written as common js only.
 <<<---------------------------------------------------------------------------->>>
 
+
+NOTE: ES module is modern way of writing code, and common js is older way. However, for this sprint we will be using common js as most of the code is written as common js only.
