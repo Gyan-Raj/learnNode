@@ -1,0 +1,154 @@
+Till now, we saw how express framework works and how easy it makes to route different paths including dynamic routing
+  -we used const http=require("http"):provided by node, and  used const server=http.createServer((req,res)=>{res.writeHead();res.write();res.end()})
+  -we replaced require("http") by const express=require("express"):provided by express and used const app=express(), and then app.get("/urlPaths",(req,res)=>)
+  -we used req.params for dynamic routing
+  -we used req.query for query parameters
+
+
+const express = require("express");
+const app = express(); //will create an application with express
+const PORT = 8082;
+const currenciesJSON = require("./currencies.json");
+
+app.get("/", (req, res) => {
+  res
+    .header({ "content-type": "text/html" })
+    .send(`<h1>Currency Database</h1>`);
+});
+app.get("/currencies", (req, res) => {
+  console.log(req.query); //this will give us the query parameters passed, and depending upon that we will return a response. //for http://localhost:8082/currencies?min_value=0.001, it will console an object as: {min_value:"0.001"}. Similarly, for http://localhost:8082/currencies?min_value=0.001&max_value=0.01, it will console an object as: {min_value:"0.001", max_value:"0.01"}
+  console.log(req.query.min_value); //for http://localhost:8082/currencies?min_value=0.001, it will give output as "0.001"
+  const { min_value } = req.query;
+
+  if (min_value) {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value)); //we have to be careful in using ===. Since, we can see that in currenciesJSON file, min_size is a string as well as we know that req (or url path) is also a string, so it will not give a problem. But, we have to cross check for cases when the data type of query parameter (which is always a string) and value in database are not the same.
+    //NOTE: we will not have to check this when we will be directly interacting with actual databases as databases have their own queries, where we can directly query the database instead of getting entire information and then filtering it.
+  } else {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data);
+  }
+});
+
+app.get("/currencies/:symbol", (req, res) => {
+  const { symbol } = req.params;
+  const reqCurr = currenciesJSON.data.find(
+    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
+  );
+  if (reqCurr) {
+    return res.header({ "content-type": "application/json" }).send(reqCurr);
+  } else {
+    return res.status(404).send({ message: "invalid symbol" });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server listening at port: ${PORT}`);
+});
+
+
+and in .rest file:
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies?min_value=0.001
+###
+GET http://localhost:8082/currencies/inr
+###
+
+
+
+
+<<<---------------------------------------------------------------------------->>>
+
+# Now, we will be organising our code in separate files and folders. For that we will be learning about a concept called Controllers. So, the callback functions which we pass as the second argument when defining routes can be separated in different files, and in index.js file we can just have app.get("/", callbackFunction)
+  -These callback functions are called as controllers
+  -We conventionally name controllers with <route>.controller.js and often put them in a controllers folder.
+  -It can be a good practice to make your controller function names as descriptive as possible. eg. getCurrencies(), updateCurrencyList(), deleteCurrency()
+  -So, we now have a controllers folder with a file called currencies.controllers.js => which means that this javascript file is a controller file for /currencies endpoint
+
+# BUT, why should we have a controller? Ans:- This approach has a few advantages:
+  -Reusing code logic
+  -It makes debugging easier by separating routing logic from control logic
+
+# NOTE: When working within a vanilla node.js environment, we cannot use import/export statements to export or import the files. Here we need to use the require and module.exports syntax
+
+# module.exports
+  -We use the global module object to declare what we want to "Export" from a file, so that we can import it in another file.
+  -The module object in JS contains the properties related to a specific module, particularly, we're interested in the exports property of this object.
+  -The exports property has an object as its value where you can declare the references to the members of that specific module.
+  -To use the exported values using module.exports, we use a function called require
+  -It takes in the file name as parameter and returns the exports object of the file.
+So, after writing these controller(callback) functions in separate file, we need to export it from currencies.controllers.js file (like module.exports = { getCurrencies, getCurrencyBySymbol };) and import it in index.js file (like const { getCurrencies,  getCurrencyBySymbol } = require("./controllers/currencies.controllers");)
+
+//index.js
+const express = require("express");
+const app = express(); //will create an application with express
+const PORT = 8082;
+
+const {
+  getCurrencies,
+  getCurrencyBySymbol,
+} = require("./controllers/currencies.controllers");
+
+app.get("/", (req, res) => {
+  res
+    .header({ "content-type": "text/html" })
+    .send(`<h1>Currency Database</h1>`);
+});
+app.get("/currencies", getCurrencies);
+
+app.get("/currencies/:symbol", getCurrencyBySymbol);
+
+app.listen(PORT, () => {
+  console.log(`Server listening at port: ${PORT}`);
+});
+
+
+//controllers/currencies.controllers.js
+const currenciesJSON = require("../currencies.json");
+const getCurrencies = (req, res) => {
+  const { min_value } = req.query;
+  if (min_value) {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
+  } else {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data);
+  }
+};
+const getCurrencyBySymbol = (req, res) => {
+  const { symbol } = req.params;
+  const reqCurr = currenciesJSON.data.find(
+    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
+  );
+  if (reqCurr) {
+    return res.header({ "content-type": "application/json" }).send(reqCurr);
+  } else {
+    return res.status(404).send({ message: "invalid symbol" });
+  }
+};
+
+module.exports = { getCurrencies, getCurrencyBySymbol };
+
+
+//requests.rest
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies?min_value=0.001
+###
+GET http://localhost:8082/currencies/inr
+###
+
+
+<<<---------------------------------------------------------------------------->>>
+
+We can also use normal export-import, but that is part of ES modules(esm), and what we saw was Common js (cjs) module.
+So, session2_03_esm is just to show how we can use import-export in esm
