@@ -1,165 +1,14 @@
-Till now upto session2/session2_05, we saw how express framework works and how easy it makes to route different paths including dynamic routing
+Till now upto session2/session2_06, we saw how express framework works and how easy it makes to route different paths including dynamic routing
   -we used const http=require("http"):provided by node, and  used const server=http.createServer((req,res)=>{res.writeHead();res.write();res.end()})
   -we replaced require("http") by const express=require("express"):provided by express and used const app=express(), and then app.get("/urlPaths",(req,res)=>)
   -we used req.params for dynamic routing
   -we used req.query for query parameters
   -we organised our code by writing callback functions of index.js in separate folder called controllers(session2/session2_03)
   -In Express, the routes are served in the first come first server manner(session2/session2_04) and (session2/session2_05)
-
-
-//index.js
-
-const express = require("express");
-const app = express();
-const PORT = 8082;
-
-const {
-  getCurrencies,
-  getCurrencyBySymbol,
-} = require("./controllers/currencies.controllers");
-const {
-  getUsers,
-  getUserById,
-  searchUsers,
-} = require("./controllers/users.controllers");
-
-app.get("/", (req, res) => {
-  res
-    .header({ "content-type": "text/html" })
-    .send(`<h1>Currency Database</h1>`);
-});
-app.get("/currencies", getCurrencies);
-
-app.get("/currencies/:symbol", getCurrencyBySymbol);
-
-app.get("/users", getUsers);
-
-app.get("/users/:uuid", getUserById);
-
-app.get("/users/search", searchUsers); //?gender=<string>&age=<number>
-
-app.listen(PORT, () => {
-  console.log(`Server listening at port: ${PORT}`);
-});
+  -added validation for search query parameters for gender and age to reduce wastage of compotational resources on server (session2/session2_06)
 
 
 
-//controllers/currencies.controllers.js
-
-const currenciesJSON = require("../currencies.json");
-const getCurrencies = (req, res) => {
-  const { min_value } = req.query;
-  if (min_value) {
-    res
-      .header({ "content-type": "application/json" })
-      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
-  } else {
-    res
-      .header({ "content-type": "application/json" })
-      .send(currenciesJSON.data);
-  }
-};
-
-const getCurrencyBySymbol = (req, res) => {
-  const { symbol } = req.params;
-  const reqCurr = currenciesJSON.data.find(
-    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
-  );
-  if (reqCurr) {
-    return res.header({ "content-type": "application/json" }).send(reqCurr);
-  } else {
-    return res.status(404).send({ message: "invalid symbol" });
-  }
-};
-
-module.exports = { getCurrencies, getCurrencyBySymbol };
-
-
-//controllers/users.controllers.js
-
-const usersJSON = require("../users.json");
-
-const getUsers = (req, res) => {
-  res.header({ "content-type": "application/json" }).send(usersJSON.data);
-};
-const getUserById = (req, res) => {
-  const { uuid } = req.params;
-  console.log(uuid);
-  const reqUser = usersJSON.data.find((user) => user.login.uuid === uuid);
-  if (reqUser) {
-    return res.header({ "content-type": "application/json" }).send(reqUser);
-  } else {
-    return res
-      .status(404)
-      .send({ message: `User with uuid: ${uuid} can not be found` });
-  }
-};
-
-const searchUsers = (req, res) => {
-  let { gender, age } = req.query;
-  if (gender && age) {
-    return res.header({ "content-type": "application/json" }).send(
-      usersJSON.data.filter(
-        (user) => user.gender === gender && String(user.dob.age) === age
-      )
-      //toString() Method:(Syntax: value.toString())This method is called on an object or value and converts it to a string. It works on most objects, including numbers, booleans, arrays, and objects. If the value is null or undefined, calling toString() on it will throw an error because null and undefined don't have a toString() method.
-      //String() Function: (Syntax: String(value)) This is a global function that converts any value to a string. It can be used on any value, including null and undefined, without throwing an error. When used on null or undefined, it returns the strings "null" and "undefined", respectively.
-    );
-  } else if (gender) {
-    return res
-      .header({ "content-type": "application/json" })
-      .send(usersJSON.data.filter((user) => user.gender === gender));
-  } else if (age) {
-    return res
-      .header({ "content-type": "application/json" })
-      .send(usersJSON.data.filter((user) => String(user.dob.age) === age));
-  } else {
-    return res
-      .header({ "content-type": "application/json" })
-      .status(400)
-      .send({ message: "Atleast one of 'gender' or 'age' must be present" });
-  }
-};
-
-module.exports = {
-  getUsers,
-  getUserById,
-  searchUsers,
-};
-
-
-
-
-//requests.rest
-GET http://localhost:8082
-###
-GET http://localhost:8082/currencies
-###
-GET http://localhost:8082/currencies?min_value=0.001
-###
-GET http://localhost:8082/currencies/inr
-###
-GET http://localhost:8082/users
-###
-GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
-###
-GET http://localhost:8082/users/search?gender=male
-###
-GET http://localhost:8082/users/search?age=49
-###
-GET http://localhost:8082/users/search?gender=male&age=49
-###
-GET http://localhost:8082/users/search?age=49&gender=male
-###
-GET http://localhost:8082/users/search
-###
-
-
-
-<<<---------------------------------------------------------------------------->>>
-
-# Now, let us first validate the query parameters before sending the request to the server to save our COMPUTATIONAL RESOURCE of the server.
-We should not process the request which are invalid in nature like gender=50 or gender=xyz or age=male or age=-50
 
 //index.js
 
@@ -329,6 +178,225 @@ GET http://localhost:8082/users/search
 ###
 GET http://localhost:8082/users/search?gender=xyz
 ###
+GET http://localhost:8082/users/search?age=50a
+###
+GET http://localhost:8082/users/search?age=-50
+###
+
+
+
+<<<---------------------------------------------------------------------------->>>
+
+# Now, in this session, we will be focusing on solving one of the two issues discussed in session2/session2_06, which can be solved by using express router module to manage our routes in a separate file :- It allows us to club our routes together;  :- Manages API versioning.
+
+So,
+  -let us create a new folder called routes
+  -inside this, we will have one file for currencies and another file for users
+  -import express using const express=require("express)
+  -use express router module provided by express, i.e., Express has a constructor function to initialize a new Router instance const router=express.Router()
+  -now on this express router, we can do everything that we were doing on app ,i.e., Define the routes using router (like we used to do with app):- router.get("",()=>{}) or router.post("",()=>{}) etc
+  -And finally export the router instance:- module.exports = router;
+  -Now import all the routes in your index.js 
+  -Now to use these routes, we have a function in the express app object called use() that takes in two parameters:- route (string), and middleware for the route → Here it will be the object we imported.
+
+
+
+
+//index.js
+
+const express = require("express");
+const app = express();
+const PORT = 8082;
+
+const userRouter = require("./routes/users.routes");
+const currencyRouter = require("./routes/currencies.routes");
+
+app.get("/", (req, res) => {
+  res
+    .header({ "content-type": "text/html" })
+    .send(`<h1>Currency Database</h1>`);
+});
+
+app.use("/currencies", currencyRouter); //to use the routes, we have a function in the express app object called use() that takes in two parameters:- route (string), i.e., "/currencies", and middleware for the route → Here it will be the object we imported,i.e., currencyRouter.
+
+app.use("/users", userRouter); //to use the routes, we have a function in the express app object called use() that takes in two parameters:- route (string),  i.e., "/users" and middleware for the route → Here it will be the object we imported, i.e., userRouter.
+
+app.listen(PORT, () => {
+  console.log(`Server listening at port: ${PORT}`);
+});
+
+
+
+
+//controllers/currencies.controllers.js
+
+const currenciesJSON = require("../currencies.json");
+const getCurrencies = (req, res) => {
+  const { min_value } = req.query;
+  if (min_value) {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
+  } else {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data);
+  }
+};
+const getCurrencyBySymbol = (req, res) => {
+  const { symbol } = req.params;
+  const reqCurr = currenciesJSON.data.find(
+    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
+  );
+  if (reqCurr) {
+    return res.header({ "content-type": "application/json" }).send(reqCurr);
+  } else {
+    return res.status(404).send({ message: "invalid symbol" });
+  }
+};
+
+module.exports = {
+  getCurrencies,
+  getCurrencyBySymbol,
+};
+
+
+
+
+//controllers/users.controllers.js
+
+const usersJSON = require("../users.json");
+
+const getUsers = (req, res) => {
+  res.header({ "content-type": "application/json" }).send(usersJSON.data);
+};
+const getUserById = (req, res) => {
+  const { uuid } = req.params;
+  console.log(uuid);
+  const reqUser = usersJSON.data.find((user) => user.login.uuid === uuid);
+  if (reqUser) {
+    return res.header({ "content-type": "application/json" }).send(reqUser);
+  } else {
+    return res
+      .status(404)
+      .send({ message: `User with uuid: ${uuid} can not be found` });
+  }
+};
+
+const searchUsers = (req, res) => {
+  let { gender, age } = req.query;
+  let validGenders = ["male", "female"];
+  if (gender && !validGenders.includes(gender)) {
+    return res
+      .header({ "content-type": "application/json" })
+      .status(400)
+      .send({ message: `Gender must be one of: ${validGenders.join(", ")}` });
+  }
+  if (age && isNaN(age)) {
+    return res
+      .header({ "content-type": "application/json" })
+      .status(400)
+      .send({ message: `Age must be a valid number` });
+  }
+  if (age && age < 0) {
+    return res
+      .header({ "content-type": "application/json" })
+      .status(400)
+      .send({ message: `Age cannot be negative` });
+  }
+  if (gender && age) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(
+        usersJSON.data.filter(
+          (user) => user.gender === gender && String(user.dob.age) === age
+        )
+      );
+  } else if (gender) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.gender === gender));
+  } else if (age) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => String(user.dob.age) === age));
+  } else {
+    return res
+      .header({ "content-type": "application/json" })
+      .status(400)
+      .send({ message: "Atleast one of 'gender' or 'age' must be present" });
+  }
+};
+
+module.exports = {
+  getUsers,
+  getUserById,
+  searchUsers,
+};
+
+
+//routes/currencies.routes.js
+
+const express = require("express");
+const router = express.Router();
+const {
+  getCurrencies,
+  getCurrencyBySymbol,
+} = require("../controllers/currencies.controllers");
+
+router.get("/", getCurrencies);
+
+router.get("/:symbol", getCurrencyBySymbol);
+
+module.exports = router;
+
+
+//routes/users.routes.js
+
+const express = require("express");
+const {
+  getUsers,
+  getUserById,
+  searchUsers,
+} = require("../controllers/users.controllers");
+
+const router = express.Router();
+
+router.get("/", getUsers);
+router.get("/search", searchUsers);
+router.get("/:uuid", getUserById);
+
+module.exports = router;
+
+
+
+
+//requests.rest
+
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies?min_value=0.001
+###
+GET http://localhost:8082/currencies/inr
+###
+GET http://localhost:8082/users
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
+###
+GET http://localhost:8082/users/search?gender=male
+###
+GET http://localhost:8082/users/search?age=49
+###
+GET http://localhost:8082/users/search?gender=male&age=49
+###
+GET http://localhost:8082/users/search?age=49&gender=male
+###
+GET http://localhost:8082/users/search
+###
+GET http://localhost:8082/users/search?gender=xyz
+###
 ###
 GET http://localhost:8082/users/search?age=50a
 ###
@@ -340,9 +408,5 @@ GET http://localhost:8082/users/search?age=-50
 <<<---------------------------------------------------------------------------->>>
 
 
-Now, everything is working fine, but now we have two things in concern:
-
-  -see that we have route paths in common, like /currencies and /currencies/:symbol have /currencies in common. Similarly, /users, /users/:uuid, and /users/search have /users in common. Now imagine if we have 15 such user routes, we may also have different methods like get/put/post/patch/delete etc., and one day we wish to disable all the users routes at once. So, the question is... Do we have to diable all the routes one by one? => NO, We can use express router module to manage our routes in a separate file :- It allows us to club our routes together;  :- Manages API versioning => session3/session3_01
-
-  -see the  amount of lines of code we have to write just to validate age and gender. So, the question is... Can we reduce this?  => YES, by using validation libraries like JOI. (Joi is a validation library )  => session3/session3_02
+Now, one issue of the issues of session2/session2_06 is solved in this session, in next session session3/session3_02, we will be solving the second issue by using validation library JOI.
 
