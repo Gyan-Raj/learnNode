@@ -318,7 +318,7 @@ const currenciesJSON = require("../currencies.json");
 const password = "LetMeIn";
 const getCurrencies = (req, res) => {
   const { min_value } = req.query;
-  if (!(req.headers.authorization === password)) {
+  if (req.headers.authorization !== password) {
     return res.sendStatus(403); //403 is for "Forbidden"
   }
   if (min_value) {

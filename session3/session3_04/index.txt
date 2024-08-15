@@ -1,0 +1,326 @@
+Till now upto session3/session3_03, we saw how express framework works and how easy it makes to route different paths including dynamic routing
+  -we used const http=require("http"):provided by node, and  used const server=http.createServer((req,res)=>{res.writeHead();res.write();res.end()})
+  -we replaced require("http") by const express=require("express"):provided by express and used const app=express(), and then app.get("/urlPaths",(req,res)=>)
+  -we used req.params for dynamic routing
+  -we used req.query for query parameters
+  -we organised our code by writing callback functions of index.js in separate folder called controllers(session2/session2_03)
+  -In Express, the routes are served in the first come first server manner(session2/session2_04) and (session2/session2_05)
+  -added validation for search query parameters for gender and age to reduce wastage of compotational resources on server (session2/session2_06)
+  -used express router module to manage our routes in a separate file which allows us to club our routes together and manages API versioning. (session3/session3_01)
+  -used Joi validation library for validating the request before hitting the server(session3/session3_01)
+  -protected our routes using password "LetMeIn" (session3/session3_03)
+
+
+
+//index.js
+
+const express = require("express");
+const app = express();
+const PORT = 8082;
+
+const userRouter = require("./routes/users.routes");
+const currencyRouter = require("./routes/currencies.routes");
+
+app.get("/", (req, res) => {
+  res
+    .header({ "content-type": "text/html" })
+    .send(`<h1>Currency Database</h1>`);
+});
+
+app.use("/currencies", currencyRouter);
+
+app.use("/users", userRouter); 
+
+app.listen(PORT, () => {
+  console.log(`Server listening at port: ${PORT}`);
+});
+
+
+
+
+
+//controllers/currencies.controllers.js
+
+const currenciesJSON = require("../currencies.json");
+const password = "LetMeIn";
+const getCurrencies = (req, res) => {
+  const { min_value } = req.query;
+  if (req.headers.authorization !== password) {
+    return res.sendStatus(403); //403 is for "Forbidden"
+  }
+  if (min_value) {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
+  } else {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data);
+  }
+};
+const getCurrencyBySymbol = (req, res) => {
+  const { symbol } = req.params;
+  const reqCurr = currenciesJSON.data.find(
+    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
+  );
+  if (reqCurr) {
+    return res.header({ "content-type": "application/json" }).send(reqCurr);
+  } else {
+    return res.status(404).send({ message: "invalid symbol" });
+  }
+};
+
+module.exports = {
+  getCurrencies,
+  getCurrencyBySymbol,
+};
+
+
+
+
+
+
+//controllers/users.controllers.js
+
+const usersJSON = require("../users.json");
+
+const getQueryErrors = require("../validations/userSearch.validation");
+
+const getUsers = (req, res) => {
+  res.header({ "content-type": "application/json" }).send(usersJSON.data);
+};
+const getUserById = (req, res) => {
+  const { uuid } = req.params;
+  console.log(uuid);
+  const reqUser = usersJSON.data.find((user) => user.login.uuid === uuid);
+  if (reqUser) {
+    return res.header({ "content-type": "application/json" }).send(reqUser);
+  } else {
+    return res
+      .status(404)
+      .send({ message: `User with uuid: ${uuid} can not be found` });
+  }
+};
+
+const searchUsers = (req, res) => {
+  let { gender, age } = req.query;
+
+  const { error } = getQueryErrors({ gender, age });
+  if (error) {
+    return res.status(400).json(error);
+  }
+  if (gender && age) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(
+        usersJSON.data.filter(
+          (user) => user.gender === gender && String(user.dob.age) === age
+        )
+      );
+  } else if (gender) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.gender === gender));
+  } else {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => String(user.dob.age) === age));
+  }
+};
+
+module.exports = {
+  getUsers,
+  getUserById,
+  searchUsers,
+};
+
+
+
+//routes/currencies.routes.js
+
+const express = require("express");
+const router = express.Router();
+const {
+  getCurrencies,
+  getCurrencyBySymbol,
+} = require("../controllers/currencies.controllers");
+
+router.get("/", getCurrencies);
+
+router.get("/:symbol", getCurrencyBySymbol);
+
+module.exports = router;
+
+
+
+//routes/users.routes.js
+
+const express = require("express");
+const {
+  getUsers,
+  getUserById,
+  searchUsers,
+} = require("../controllers/users.controllers");
+
+const router = express.Router();
+
+router.get("/", getUsers);
+router.get("/search", searchUsers);
+router.get("/:uuid", getUserById);
+
+module.exports = router;
+
+
+
+//validations/userSearch.validation.js
+
+const Joi = require("joi");
+
+const validGenders = ["male", "female"];
+const userSearchSchema = Joi.object({
+  gender: Joi.string().valid(...validGenders),
+  age: Joi.number().min(0).max(100),
+}).or("gender", "age");
+
+const getQueryErrors = ({ gender, age }) => {
+  //This function will take in the arguement as an object and then validate it against the schema we just created
+  const result = userSearchSchema.validate({ gender, age }); // The validate() function takes in the data and returns an object.
+  console.log(result); //we get an object as response as stated at line above.
+
+  /**
+   * So, for request like: GET http://localhost:8082/users/search?gender=male we will get:
+    { value: { gender: 'male', age: undefined } }
+
+   * for request like: GET http://localhost:8082/users/search?age=49 we will get
+    { value: { gender: undefined, age: 49 } }
+
+   * for GET http://localhost:8082/users/search?age=49&gender=male we will get
+    { value: { gender: 'male', age: 49 } }
+   
+   * i.e., if the query params are valid, we will get an object with just one key as "value" which again is an object
+   */
+
+  //Now,say we have incorrect query parameters, then we will again get an object but this time with 2 keys: one as "value" and second as "error" which has a lot of useful information about the data and the error it was subjected to.
+  /**
+   * So, GET http://localhost:8082/users/search?gender=xyz will give us:
+    {
+    value: { gender: 'xyz', age: undefined },
+    error: [Error [ValidationError]: "gender" must be one of [male, female]] {
+            _original: { gender: 'xyz', age: undefined },
+            details: [ [Object] ]
+        }
+    }
+   * GET http://localhost:8082/users/search?age=-50 will give:
+   {
+    value: { gender: undefined, age: '-50' },
+    error: [Error [ValidationError]: "age" must be greater than or equal to 0] {
+            _original: { gender: undefined, age: '-50' },
+            details: [ [Object] ]
+        }
+    }
+   * GET http://localhost:8082/users/search will give:
+   {
+    value: { gender: undefined, age: undefined },
+    error: [Error [ValidationError]: "value" must contain at least one of [gender, age]] {
+            _original: { gender: undefined, age: undefined },
+            details: [ [Object] ]
+        }
+    }
+   */
+  return result;
+};
+
+// Now we can easily use this function in our searchUsersByQuery() controller
+
+module.exports = getQueryErrors;
+
+
+
+
+//requests.rest
+
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies
+Authorization: LetMeIn
+###
+GET http://localhost:8082/currencies?min_value=0.001
+###
+GET http://localhost:8082/currencies/inr
+###
+GET http://localhost:8082/users
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
+###
+GET http://localhost:8082/users/search?gender=male
+###
+GET http://localhost:8082/users/search?age=49
+###
+GET http://localhost:8082/users/search?gender=male&age=49
+###
+GET http://localhost:8082/users/search?age=49&gender=male
+###
+GET http://localhost:8082/users/search
+###
+GET http://localhost:8082/users/search?gender=xyz
+###
+###
+GET http://localhost:8082/users/search?age=-50
+###
+
+
+
+
+
+
+
+<<<---------------------------------------------------------------------------->>>
+
+# BUT BUT BUT Should we deploy a code alongwith the password written? i.e., We protected our routes, but who will protect our password?
+Ans:  So, we will not be writing password anywhere in the code, rather, we should pass these as environment variables.
+  
+Question: The question is does our node environment has something called "password"?
+  Ans: Not really. So, to declare this password globally for our node environment, we close the server (Ctrl+C) if running, and then write password=LetMeIn npm run dev.
+
+  -so, before we do npm run dev to start our server, we have to declare the environment variables, i.e., we will write as: password=LetMeIn npm run dev (in single line). So, say we have to declare multiple environment variables, we can mention them together separated by a space (eg. password:LetMeIn apiKey:12345 npm run dev)
+
+Thus, environment variables are not anywhere written in the code rather are injected during the runtime
+
+
+#BUT BUT BUT image having multiple environment variables. In such case, this method will be very difficult to implement.
+
+System’s environment variables mask and hide sensitive information like API keys or Server Endpoints. Because when we deploy our project we specify them separately in the hosting service. 
+
+  So,
+  -We will create a new file named .env and specify the key value pairs there
+  i.e., password=LetMeIn
+  Now we can access all these variables and their values using the global "process" object in Node.js. (NOTE: porcess refers to Node process)
+  This process object has another object "env" inside it where we can access the variables from.
+  const Password = process.env.password
+
+NOTE: Remember to include .env in .gitignore, so that it is not deployed
+
+# BUT BUT BUT, our server will not work. We have to use a package (install it as dev dependecy) which allows us to read the env files:
+  package name: dotenv
+  install: npm i dotenv -D
+
+Now in the index.js file, just call the config function of dotenv (require("dotenv").config())
+  
+
+
+
+
+<<<---------------------------------------------------------------------------->>>
+
+
+#Very nicely done.
+
+So, we have successfully protected the /currencies path, similarly we can protect /currency/:symbol and also can protect "/users", "/users/search", "/users/:uuid"
+
+But we need to apply it to each of the routes throughout, i.e., we need to apply authorization for each and every route of our application. So, should we not authorize at parent level so that all child routes are protected. i.e., just authorize /users and all routes of /users, i.e., /users/search, /users/:uuid is also protected?
+
+Ans: Yes we should
+
+And here comes concept of MIDDLEWARES (session3/session3_05)
