@@ -1,5 +1,4 @@
 const express = require("express");
-require("dotenv").config();
 const app = express();
 const PORT = 8082;
 
@@ -14,7 +13,7 @@ app.get("/", (req, res) => {
 
 app.use("/currencies", currencyRouter);
 
-app.use("/users", userRouter);
+app.use("/users", userRouter); 
 
 app.listen(PORT, () => {
   console.log(`Server listening at port: ${PORT}`);

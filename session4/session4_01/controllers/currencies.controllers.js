@@ -1,9 +1,10 @@
 const currenciesJSON = require("../currencies.json");
+require("dotenv").config();
 const getCurrencies = (req, res) => {
+  console.log(process.env.password, "pass");
+  console.log(req.headers.authorization, "auth");
+
   const { min_value } = req.query;
-  if (req.headers.authorization !== process.env.password) {
-    return res.sendStatus(403);
-  }
   if (min_value) {
     res
       .header({ "content-type": "application/json" })
