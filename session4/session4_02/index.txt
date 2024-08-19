@@ -10,377 +10,7 @@ Till now upto session3, we saw how express framework works and how easy it makes
   -used Joi validation library for validating the request before hitting the server(session3/session3_01)
   -protected our routes using password "LetMeIn" (session3/session3_03)
   -protected our routes by writing environment variables, which we write in .env file. We used dotenv library as devDependency to read .env files(session3/session3_04)
-
-
-//index.js
-const express = require("express");
-require("dotenv").config();
-const app = express();
-const PORT = 8082;
-
-const userRouter = require("./routes/users.routes");
-const currencyRouter = require("./routes/currencies.routes");
-
-app.get("/", (req, res) => {
-  res
-    .header({ "content-type": "text/html" })
-    .send(`<h1>Currency Database</h1>`);
-});
-
-app.use("/currencies", currencyRouter);
-
-app.use("/users", userRouter);
-
-app.listen(PORT, () => {
-  console.log(`Server listening at port: ${PORT}`);
-});
-
-
-
-
-
-//controllers/currencies.controllers.js
-
-const currenciesJSON = require("../currencies.json");
-const getCurrencies = (req, res) => {
-  const { min_value } = req.query;
-  if (req.headers.authorization !== process.env.password) {
-    return res.sendStatus(403);
-  }
-  if (min_value) {
-    res
-      .header({ "content-type": "application/json" })
-      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
-  } else {
-    res
-      .header({ "content-type": "application/json" })
-      .send(currenciesJSON.data);
-  }
-};
-const getCurrencyBySymbol = (req, res) => {
-  const { symbol } = req.params;
-  const reqCurr = currenciesJSON.data.find(
-    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
-  );
-  if (reqCurr) {
-    return res.header({ "content-type": "application/json" }).send(reqCurr);
-  } else {
-    return res.status(404).send({ message: "invalid symbol" });
-  }
-};
-
-module.exports = {
-  getCurrencies,
-  getCurrencyBySymbol,
-};
-
-
-
-
-
-
-//controllers/users.controllers.js
-
-const usersJSON = require("../users.json");
-
-const getQueryErrors = require("../validations/userSearch.validation");
-
-const getUsers = (req, res) => {
-  res.header({ "content-type": "application/json" }).send(usersJSON.data);
-};
-const getUserById = (req, res) => {
-  const { uuid } = req.params;
-  console.log(uuid);
-  const reqUser = usersJSON.data.find((user) => user.login.uuid === uuid);
-  if (reqUser) {
-    return res.header({ "content-type": "application/json" }).send(reqUser);
-  } else {
-    return res
-      .status(404)
-      .send({ message: `User with uuid: ${uuid} can not be found` });
-  }
-};
-
-const searchUsers = (req, res) => {
-  let { gender, age } = req.query;
-
-  const { error } = getQueryErrors({ gender, age });
-  if (error) {
-    return res.status(400).json(error);
-  }
-  if (gender && age) {
-    return res
-      .header({ "content-type": "application/json" })
-      .send(
-        usersJSON.data.filter(
-          (user) => user.gender === gender && String(user.dob.age) === age
-        )
-      );
-  } else if (gender) {
-    return res
-      .header({ "content-type": "application/json" })
-      .send(usersJSON.data.filter((user) => user.gender === gender));
-  } else {
-    return res
-      .header({ "content-type": "application/json" })
-      .send(usersJSON.data.filter((user) => String(user.dob.age) === age));
-  }
-};
-
-module.exports = {
-  getUsers,
-  getUserById,
-  searchUsers,
-};
-
-
-
-//routes/currencies.routes.js
-
-const express = require("express");
-const router = express.Router();
-const {
-  getCurrencies,
-  getCurrencyBySymbol,
-} = require("../controllers/currencies.controllers");
-
-router.get("/", getCurrencies);
-
-router.get("/:symbol", getCurrencyBySymbol);
-
-module.exports = router;
-
-
-
-
-//routes/users.routes.js
-
-const express = require("express");
-const {
-  getUsers,
-  getUserById,
-  searchUsers,
-} = require("../controllers/users.controllers");
-
-const router = express.Router();
-
-router.get("/", getUsers);
-router.get("/search", searchUsers);
-router.get("/:uuid", getUserById);
-
-module.exports = router;
-
-
-
-
-//validations/userSearch.validation.js
-
-const Joi = require("joi");
-
-const validGenders = ["male", "female"];
-const userSearchSchema = Joi.object({
-  gender: Joi.string().valid(...validGenders),
-  age: Joi.number().min(0).max(100),
-}).or("gender", "age");
-
-const getQueryErrors = ({ gender, age }) => {
-  const result = userSearchSchema.validate({ gender, age });
-  return result;
-};
-
-module.exports = getQueryErrors;
-
-
-//.env
-password=LetMeIn
-
-
-//requests.rest
-
-GET http://localhost:8082
-###
-GET http://localhost:8082/currencies
-###
-GET http://localhost:8082/currencies
-Authorization: LetMeIn
-###
-GET http://localhost:8082/currencies?min_value=0.001
-###
-GET http://localhost:8082/currencies/inr
-###
-GET http://localhost:8082/users
-###
-GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
-###
-GET http://localhost:8082/users/search?gender=male
-###
-GET http://localhost:8082/users/search?age=49
-###
-GET http://localhost:8082/users/search?gender=male&age=49
-###
-GET http://localhost:8082/users/search?age=49&gender=male
-###
-GET http://localhost:8082/users/search
-###
-GET http://localhost:8082/users/search?gender=xyz
-###
-###
-GET http://localhost:8082/users/search?age=-50
-###
-
-
-
-
-
-
-
-
-
-
-<<<---------------------------------------------------------------------------->>>
-
-# We have successfully protected the /currencies path, similarly we can protect /currency/:symbol and also can protect "/users", "/users/search", "/users/:uuid"
-
-But we need to apply it to each of the routes throughout, i.e., we need to apply authorization for each and every route of our application. So, should we not authorize at parent level so that all child routes are protected. i.e., just authorize /users and all routes of /users, i.e., /users/search, /users/:uuid is also protected?
-
-Ans: Yes we should
-
-And here comes concept of MIDDLEWARES (session4/session4_01)
-
-
-
-
-# Middleware functions are functions that have access to the request object (req), the response object (res), and the next middleware function in the application’s request-response cycle.
-  -A middleware takes in both req and res as its arguments.
-  -A middleware can send response back to the client. It need not return true/false 
-  -If everything goes well, the middleware passes the req and the res to the next middleware (like passing the baton to another player)
-  -To pass and accept the request and the response object to the next middleware, each middleware accepts a callback named as next() as an argument
-  -To use the middleware import it in our index.js and use it with the help of app.use(). It takes in middleware(s) as an argument and applies them in order
-
-In summary, middlewares can:
-  -Execute a piece of code (based on information of the request/response)
-  -Make changes to the request & response objects
-  -Return a response to the client (and end the request-response cycle)
-  -Call the next middleware.
-
-=> So, the router will not send request directly to the controller, instead, it will first send the request to the middleware and then the middleware will decide whether to send the request to controller or send the response back to the client
-
--Create a folder named middlewares with a file named verifyAuth.js
--write a function inside it named as verifyAuth which takes in 3 arguments: req, res and next
--we can use this function in routes. 
--NOTE: we used verify auth in currencies.routes.js only for "/currencies" i.e., getCurrencies, and not for "/currencies/:symbol" i.e., not for getCurrencyBySymbol => Thus, we are selectively applying middleware to a particular route
-  So, currencies.routes.js file looks like this:
-    const express = require("express");
-    const router = express.Router();
-    const {
-      getCurrencies,
-      getCurrencyBySymbol,
-    } = require("../controllers/currencies.controllers");
-
-    const verifyAuth=require("../middlewares/verifyAuth")
-
-    router.get("/", verifyAuth, getCurrencies);           //middleware applied to this route path
-
-    router.get("/:symbol", getCurrencyBySymbol);
-
-    module.exports = router;
--NOTE: we can also do it globally for all the routes. See, in users.routes.js, we have written router.use(verifyAuth), so now the middleware is applied on all the three routes "/users", "/users/search" and "/users/:uuid".
-  So, users.routes.js file looks like this:
-    const express = require("express");
-    const {
-      getUsers,
-      getUserById,
-      searchUsers,
-    } = require("../controllers/users.controllers");
-
-    const router = express.Router();
-
-    const verifyAuth = require("../middlewares/verifyAuth");
-
-    router.use(verifyAuth);
-
-    router.get("/", getUsers);
-    router.get("/search", searchUsers);
-    router.get("/:uuid", getUserById);
-
-    module.exports = router;
-
--NOTE: if we want to apply it to just two routes, say on "/users/search" and "/users/:uuid". 
-  So, users.routes.js file will look like this:
-    const express = require("express");
-    const {
-      getUsers,
-      getUserById,
-      searchUsers,
-    } = require("../controllers/users.controllers");
-
-    const router = express.Router();
-
-    const verifyAuth = require("../middlewares/verifyAuth");
-
-    router.use(verifyAuth);
-
-    router.get("/", getUsers);
-    router.get("/search", searchUsers);
-    router.get("/:uuid", getUserById);
-
-    module.exports = router;
-
--NOTE: if we want to apply it to all the routes i.e., to "/", "/currencies", "/currencies/:symbol", "/users", "/users/search","users/:uuid", the in that case we can use the middleware globally. i.e., use this middleware in index.js 
-  So, index.js file will look like this:
-    const express = require("express");
-    const app = express();
-    const PORT = 8082;
-
-    const userRouter = require("./routes/users.routes");
-    const currencyRouter = require("./routes/currencies.routes");
-
-    const verifyAuth = require("./middlewares/verifyAuth");
-
-    app.use(verifyAuth);            //middleware applied globally
-
-    app.get("/", (req, res) => {
-      res
-        .header({ "content-type": "text/html" })
-        .send(`<h1>Currency Database</h1>`);
-    });
-
-    app.use("/currencies", currencyRouter);
-
-    app.use("/users", userRouter);
-
-    app.listen(PORT, () => {
-      console.log(`Server listening at port: ${PORT}`);
-    });
-
--NOTE: Say we want to apply it to all the routes of "/users", we can do it as:
-  So, index.js file will look like this:
-    const express = require("express");
-    const app = express();
-    const PORT = 8082;
-
-    const userRouter = require("./routes/users.routes");
-    const currencyRouter = require("./routes/currencies.routes");
-
-    const verifyAuth = require("./middlewares/verifyAuth");
-
-    app.get("/", (req, res) => {
-      res
-        .header({ "content-type": "text/html" })
-        .send(`<h1>Currency Database</h1>`);
-    });
-
-    app.use("/currencies", currencyRouter);
-
-    app.use(verifyAuth);                  //middleware applied for "/users"
-
-    app.use("/users", userRouter);
-
-    app.listen(PORT, () => {
-      console.log(`Server listening at port: ${PORT}`);
-    });
-
-# For our code we have used the middleware for "/currencies" and to all the routes for "/users"
+  -protected our routes by using middlewares (which takes 3 parameters: req, res, next), SELECTIVELY as well as GLOBALLY
 
 
 //index.js
@@ -630,12 +260,287 @@ GET http://localhost:8082/users/search?age=-50
 
 
 
-
 <<<---------------------------------------------------------------------------->>>
 
-# What else could be used as a middleware?
-Ans: Validators!
+We will now use Validators as middlewares
+  -We have already created a getQueryErrors function, we can now move it to a new folder middlewares/validators
+  -Convert this getQueryErrors function into a validateSearchQuery middleware.
+  -NOTE that: Middleware take in req, res, and next. It can return a response to the client and if everything goes well, they call the next middleware.
 
-We have already created a getQueryErrors function, we can now move it to a new folder middlewares/validators (session4/session4_02)
+For now, we need to only use this middleware for the /users/search route. Let’s see how to selectively apply middleware. Here,w e are applying it for users/search
 
+
+
+
+//index.js
+const express = require("express");
+const app = express();
+const PORT = 8082;
+
+const userRouter = require("./routes/users.routes");
+const currencyRouter = require("./routes/currencies.routes");
+
+app.get("/", (req, res) => {
+  res
+    .header({ "content-type": "text/html" })
+    .send(`<h1>Currency Database</h1>`);
+});
+
+app.use("/currencies", currencyRouter);
+
+app.use("/users", userRouter); 
+
+app.listen(PORT, () => {
+  console.log(`Server listening at port: ${PORT}`);
+});
+
+
+
+
+
+
+//controllers/currencies.controllers.js
+
+const currenciesJSON = require("../currencies.json");
+require("dotenv").config();
+const getCurrencies = (req, res) => {
+  console.log(process.env.password, "pass");
+  console.log(req.headers.authorization, "auth");
+
+  const { min_value } = req.query;
+  if (min_value) {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
+  } else {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data);
+  }
+};
+const getCurrencyBySymbol = (req, res) => {
+  const { symbol } = req.params;
+  const reqCurr = currenciesJSON.data.find(
+    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
+  );
+  if (reqCurr) {
+    return res.header({ "content-type": "application/json" }).send(reqCurr);
+  } else {
+    return res.status(404).send({ message: "invalid symbol" });
+  }
+};
+
+module.exports = {
+  getCurrencies,
+  getCurrencyBySymbol,
+};
+
+
+
+
+
+//controllers/users.controllers.js
+
+const usersJSON = require("../users.json");
+
+const getQueryErrors = require("../validations/userSearch.validation");
+
+const getUsers = (req, res) => {
+  res.header({ "content-type": "application/json" }).send(usersJSON.data);
+};
+const getUserById = (req, res) => {
+  const { uuid } = req.params;
+  const reqUser = usersJSON.data.find((user) => user.login.uuid === uuid);
+  if (reqUser) {
+    return res.header({ "content-type": "application/json" }).send(reqUser);
+  } else {
+    return res
+      .status(404)
+      .send({ message: `User with uuid: ${uuid} can not be found` });
+  }
+};
+
+const searchUsers = (req, res) => {
+  let { gender, age } = req.query;
+
+  if (gender && age) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(
+        usersJSON.data.filter(
+          (user) => user.gender === gender && String(user.dob.age) === age
+        )
+      );
+  } else if (gender) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.gender === gender));
+  } else {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => String(user.dob.age) === age));
+  }
+};
+
+module.exports = {
+  getUsers,
+  getUserById,
+  searchUsers,
+};
+
+
+
+
+//routes/currencies.routes.js
+
+const express = require("express");
+const router = express.Router();
+const {
+  getCurrencies,
+  getCurrencyBySymbol,
+} = require("../controllers/currencies.controllers");
+
+const verifyAuth=require("../middlewares/verifyAuth")
+
+router.get("/", verifyAuth, getCurrencies);
+
+router.get("/:symbol", getCurrencyBySymbol);
+
+module.exports = router;
+
+
+
+
+
+//routes/users.routes.js
+
+const express = require("express");
+const {
+  getUsers,
+  getUserById,
+  searchUsers,
+} = require("../controllers/users.controllers");
+
+const router = express.Router();
+
+const verifyAuth = require("../middlewares/verifyAuth");
+
+router.use(verifyAuth);
+
+const validator = require("../middlewares/validators");
+const userSearchSchema = require("../validations/userSearch.validation");
+
+router.get("/", getUsers);
+router.get("/search", validator(userSearchSchema), searchUsers);
+router.get("/:uuid", getUserById);
+
+module.exports = router;
+
+
+
+
+
+//validations/userSearch.validation.js
+
+const Joi = require("joi");
+
+const validGenders = ["male", "female"];
+
+const userSearchSchema = Joi.object({
+  gender: Joi.string().valid(...validGenders),
+  age: Joi.number().min(0).max(100),
+}).or("gender", "age");
+
+module.exports = userSearchSchema;
+
+
+
+
+//.env
+password=LetMeIn
+
+
+//middlewares/verifyAuth.js
+
+const verifyAuth = (req, res, next) => {
+  if (req.headers.authorization !== process.env.password) {
+    return res.sendStatus(403);
+  } else {
+    next();
+  }
+};
+
+module.exports = verifyAuth;
+
+
+
+
+
+//middlewares/validators.js
+
+const validator = (schema) => (req, res, next) => {
+  const { gender, age } = req.query;
+  const { error } = schema.validate({ gender, age });
+  if (error) {
+    return res.status(422).send({ message: error.details[0].message });
+  } else {
+    next();
+  }
+};
+
+module.exports = validator;
+
+
+
+
+
+
+
+
+//requests.rest
+
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies
+Authorization: LetMeIn
+###
+GET http://localhost:8082/currencies?min_value=0.001
+###
+GET http://localhost:8082/currencies/inr
+###
+GET http://localhost:8082/users
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
+###
+GET http://localhost:8082/users/search?gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male&age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49&gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=xyz
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+Authorization: LetMeIn
+###
+
+
+
+
+
+
+
+<<<---------------------------------------------------------------------------->>>
 
