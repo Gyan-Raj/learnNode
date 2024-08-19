@@ -374,8 +374,6 @@ And here comes concept of MIDDLEWARES (session4/session4_01)
 # For our code we have used the middleware for "/currencies" and to all the routes for "/users"
 
 
-
-
 //index.js
 const express = require("express");
 const app = express();
@@ -626,3 +624,7 @@ GET http://localhost:8082/users/search?age=-50
 
 <<<---------------------------------------------------------------------------->>>
 
+# What else could be used as a middleware?
+Ans: Validators!
+
+We have already created a getQueryErrors function, we can now move it to a new folder middlewares/validators (session4/session4_02)
