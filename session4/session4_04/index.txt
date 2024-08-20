@@ -1,0 +1,427 @@
+Till now upto session4_03, we saw how express framework works and how easy it makes to route different paths including dynamic routing
+  -we used const http=require("http"):provided by node, and  used const server=http.createServer((req,res)=>{res.writeHead();res.write();res.end()})
+  -we replaced require("http") by const express=require("express"):provided by express and used const app=express(), and then app.get("/urlPaths",(req,res)=>)
+  -we used req.params for dynamic routing
+  -we used req.query for query parameters
+  -we organised our code by writing callback functions of index.js in separate folder called controllers(session2/session2_03)
+  -In Express, the routes are served in the first come first server manner(session2/session2_04) and (session2/session2_05)
+  -added validation for search query parameters for gender and age to reduce wastage of compotational resources on server (session2/session2_06)
+  -used express router module to manage our routes in a separate file which allows us to club our routes together and manages API versioning. (session3/session3_01)
+  -used Joi validation library for validating the request before hitting the server(session3/session3_01)
+  -protected our routes using password "LetMeIn" (session3/session3_03)
+  -protected our routes by writing environment variables, which we write in .env file. We used dotenv library as devDependency to read .env files(session3/session3_04)
+  -protected our routes by using middlewares (which takes 3 parameters: req, res, next), SELECTIVELY as well as GLOBALLY(session4/session4_01)
+  -used middleware validators for validating "users/search" (session4/session4_02)
+  -used "celebrate" package provided by joi to validate the "search" ("users/search") as well as "uuid" ("users/:uuid") (session4/session4_03)
+
+
+//index.js
+const express = require("express");
+const app = express();
+const PORT = 8082;
+
+const userRouter = require("./routes/users.routes");
+const currencyRouter = require("./routes/currencies.routes");
+const { errors } = require("celebrate");
+
+app.get("/", (req, res) => {
+  res
+    .header({ "content-type": "text/html" })
+    .send(`<h1>Currency Database</h1>`);
+});
+
+app.use("/currencies", currencyRouter);
+
+app.use("/users", userRouter); 
+
+app.use(errors()); 
+
+
+app.listen(PORT, () => {
+  console.log(`Server listening at port: ${PORT}`);
+});
+
+
+
+
+
+
+//controllers/currencies.controllers.js
+
+const currenciesJSON = require("../currencies.json");
+require("dotenv").config();
+const getCurrencies = (req, res) => {
+  console.log(process.env.password, "pass");
+  console.log(req.headers.authorization, "auth");
+
+  const { min_value } = req.query;
+  if (min_value) {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
+  } else {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data);
+  }
+};
+const getCurrencyBySymbol = (req, res) => {
+  const { symbol } = req.params;
+  const reqCurr = currenciesJSON.data.find(
+    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
+  );
+  if (reqCurr) {
+    return res.header({ "content-type": "application/json" }).send(reqCurr);
+  } else {
+    return res.status(404).send({ message: "invalid symbol" });
+  }
+};
+
+module.exports = {
+  getCurrencies,
+  getCurrencyBySymbol,
+};
+
+
+
+
+//controllers/users.controllers.js
+
+const usersJSON = require("../users.json");
+
+const getQueryErrors = require("../validations/userSearch.validation");
+
+const getUsers = (req, res) => {
+  res.header({ "content-type": "application/json" }).send(usersJSON.data);
+};
+const getUserById = (req, res) => {
+  const { uuid } = req.params;
+  const reqUser = usersJSON.data.find((user) => user.login.uuid === uuid);
+  if (reqUser) {
+    return res.header({ "content-type": "application/json" }).send(reqUser);
+  } else {
+    return res
+      .status(404)
+      .send({ message: `User with uuid: ${uuid} can not be found` });
+  }
+};
+
+const searchUsers = (req, res) => {
+  let { gender, age } = req.query;
+
+  if (gender && age) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(
+        usersJSON.data.filter(
+          (user) => user.gender === gender && user.dob.age === age
+        )
+      ); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
+  } else if (gender) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.gender === gender));
+  } else {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.dob.age === age)); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
+  }
+};
+
+module.exports = {
+  getUsers,
+  getUserById,
+  searchUsers,
+};
+
+
+
+
+
+//routes/currencies.routes.js
+
+const express = require("express");
+const router = express.Router();
+const {
+  getCurrencies,
+  getCurrencyBySymbol,
+} = require("../controllers/currencies.controllers");
+
+const verifyAuth=require("../middlewares/verifyAuth")
+
+router.get("/", verifyAuth, getCurrencies);
+
+router.get("/:symbol", getCurrencyBySymbol);
+
+module.exports = router;
+
+
+
+
+//routes/users.routes.js
+
+const express = require("express");
+const {
+  getUsers,
+  getUserById,
+  searchUsers,
+} = require("../controllers/users.controllers");
+
+const router = express.Router();
+
+const verifyAuth = require("../middlewares/verifyAuth");
+
+router.use(verifyAuth);
+
+const userSearchValidator = require("../validations/userSearch.validation");
+const uuidValidator = require("../validations/uuid.validations");
+
+router.get("/", getUsers);
+router.get("/search", userSearchValidator, searchUsers);
+router.get("/:uuid", uuidValidator, getUserById);
+
+module.exports = router;
+
+
+
+
+//validations/userSearch.validation.js
+
+const { celebrate, Joi, errors, Segments } = require("celebrate");
+
+const validGenders = ["male", "female"];
+
+const userSearchValidator = celebrate({
+  [Segments.QUERY]: Joi.object({
+    gender: Joi.string().valid(...validGenders),
+    age: Joi.number().min(0).max(100),
+  }).or("gender", "age"),
+});
+
+module.exports = userSearchValidator;
+
+
+
+
+//validations/uuid.validation.js
+
+const { celebrate, Joi, errors, Segments } = require("celebrate");
+
+const uuidValidator = celebrate({
+  [Segments.PARAMS]: Joi.object({
+    uuid: Joi.string().guid({
+      version: ["uuidv4"],
+    }),
+  })
+});
+
+module.exports = uuidValidator;
+
+
+
+
+
+
+//.env
+password=LetMeIn
+
+
+//middlewares/verifyAuth.js
+
+const verifyAuth = (req, res, next) => {
+  if (req.headers.authorization !== process.env.password) {
+    return res.sendStatus(403);
+  } else {
+    next();
+  }
+};
+
+module.exports = verifyAuth;
+
+
+
+
+
+//middlewares/validators.js
+
+const validator = (schema) => (req, res, next) => {
+  const { error } = schema.validate(req);
+  if (error) {
+    return res.status(422).send({ message: error.details[0].message });
+  } else {
+    next();
+  }
+};
+
+module.exports = validator;
+
+
+
+
+
+
+
+
+
+//requests.rest
+
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies
+Authorization: LetMeIn
+###
+GET http://localhost:8082/currencies?min_value=0.001
+###
+GET http://localhost:8082/currencies/inr
+###
+GET http://localhost:8082/users
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-1-280c9f9cbf35       NOTE: it does not follow uuid (8-4-4-4-12 rather it has 8-4-4-1-12)    , so it give give error message (we have to use error() method of celebrate in index.js)
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male&age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49&gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=xyz
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+Authorization: LetMeIn
+###
+
+
+
+
+<<<---------------------------------------------------------------------------->>>
+
+Now, till this point we were using plain JSON files to mock our DBs. This JSON is a format to transfer data between two machines
+  -DB to server
+  -Server to Client
+
+JSON response does not represent the way data is stored in a DB. Today there are two popular DB models available
+  -SQL Type DBs
+    -Needs to save structured data, with a rigid schema
+    -Stores data in tables with rows and columns
+    -Generally, these are relational databases
+    -ACID properties
+    Examples: MySQL, PostgreSQL
+  -NoSQL DBs
+    -No strict need to store structured data, flexible schema
+    -Stores data in Documents (which resemble JSON format)
+    -Generally, NoSQL DBs are non-relational databases, however there are few  which work on relations
+    -CAP properties
+    Examples: MongoDB, Firestore
+
+
+There are a few concepts that apply to all NoSQL databases, but we will study them in the light of MongoDB
+
+# Understanding MongoDB
+  -Data is stored in COLLECTIONS and DOCUMENTS
+  -A DOCUMENT resembles a JSON Object that can hold data in key-value pairs
+    Example - A document (or object) to store user data, or blog data like comments, content etc.
+  -A group of documents is known as a COLLECTION.
+
+# DOCUMENTS in MongoDB
+  -A document is equivalent to a record in SQL table.
+  -Documents are the fundamental units for storing data in a NoSQL DB
+    Example - A user document can look something like
+      {
+        "_id": "dj0jd29kak20jfj391jdjl103jfn",
+        "username": "gyanRaj7739",
+        "roles": ["ADMIN", "USER"],
+        "email": "bhardwaj7739@gmail.com"
+      }
+  -In MongoDB, each document has an auto generated ObjectId, which is basically a Hexadecimal value to uniquely identify the document inside a collection.
+  -This ObjectId is automatically attached to each new document added to the collection.
+      {
+          "_id": ObjectId("507f1f77bcf86cd799439011"),
+          "username": "gyanRaj7739",
+          "roles": ["ADMIN", "USER"],
+          "email": "bhardwaj7739@gmail.com"
+      }
+
+# Format of Data in MongoDB
+  -The DOCUMENT resembles a JSON but is actually stored in an improved version of it - BSON (= Binary encoded JavaScript Object Notation), that supports more values types like DATE, apart from plain String, Boolean, Number, and Array. It stores Data in Binary Form (https://www.mongodb.com/basics/bson)
+
+# Now we will do the required installation
+1. MongoDB Compass
+What it is: MongoDB Compass is a graphical user interface (GUI) for interacting with your MongoDB databases. It allows you to visually explore your data, run queries, and perform CRUD operations without needing to write command-line code.
+Use Case: Best suited for users who prefer a GUI to interact with their databases, or for those who want to explore and manage MongoDB visually.
+2. mongosh (MongoDB Shell)
+What it is: mongosh is a command-line interface (CLI) used to interact with MongoDB. It allows you to execute commands and queries directly in the terminal, write scripts, and perform administrative tasks.
+Use Case: Ideal for developers, DBAs, or anyone who needs to automate tasks, run scripts, or prefers using a command-line interface.
+
+# We will be using mongosh i.e., mongo shell which is CLI (Command Line Interface) not a GUI (Graphical User Interface) (mongodb Compass is a GUI)
+  -Download the mogosh from https://www.mongodb.com/try/download/shell
+  -Extract the downloaded zip file and set the environment variables
+  -Close vs code and open again
+  -Run "mongosh" in the vs code terminal
+  -By default, we will be connected to "test" database
+
+NOTE: We can also use MongoDBCompass's terminal to run query
+  -Open MongoDBCompass
+  -Connect to mongodb
+  -Open its terminal (Ctrl+`)
+  -by default, we are connected to "test" database
+
+# Common commands: (https://www.mongodb.com/developer/products/mongodb/cheat-sheet/)
+  ♦ show dbs : shows the list of databases
+  ♦ db.dropDatabase() : drops/deletes that database
+  ♦ use databaseName : switches to that particular databaseName (eg. use crio)
+  ♦ show collections : will show collections present in that database 
+  ♦ db.createCollection("collectionName") : will create a collection with name collectionName in that particular database  (eg. db.createCollection("blogs"))
+  ♦ db.collectionName.find() : will show everything (every document) that is present in that collectionName (eg. db.blogs.find())
+  ♦ db.collectionName.insertOne() : will insert a document inside that collection (eg. db.blogs.insertOne({publishedAt: null, content: "", author: []}))
+
+# let us run following commands:
+  show dbs
+  use crio
+  show collections
+  db.createCollection("blogs")    
+  db.blogs.find()
+  db.blogs.insertOne({publishedAt: null, content: "", author: []})
+  db.blogs.insertOne({publishedAt: null, content: "", author: "", title: ""})
+
+# NOTE: we inserted two documents, one have "author" as an array, while in second, it is a string; Also, in first, it does not have "title", while second one has "title" => It means, no-SQL has flexible schema
+
+Q: Can you identify what problem might arise?
+Ans: Imagine on the frontend we get this data of the the blogs collection
+And we wish to display the authors using this logic
+data.map(item => (
+  <div key={item._id}>
+    {item.author.map(author => <p key={author}>{author}</p>}  
+  </div>
+)
+
+This can make our DB very inconsistent to store objects and query them later
+Moreover the data in MongoDB is stored in BSON and we need to convert it to JSON to make it usable.
+Here is where an Object Data Modeling (ODM) library like Mongoose helps us.
+
+
+
+<<<---------------------------------------------------------------------------->>>
+
+# Mongoose
+  -Mongoose is a preferred ODM library for: MongoDB, in: Node JS
+  -It manages relationships between data, provides schema validation, and is used to translate between objects in code and the representation of those objects in MongoDB.
+  -It will define a schema and provide us an interface to perform CRUD (create-read-update-delete) operations on MongoDB using Node JS
+
+(session5/session5_01)
+
