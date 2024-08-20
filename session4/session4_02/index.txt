@@ -544,3 +544,5 @@ Authorization: LetMeIn
 
 <<<---------------------------------------------------------------------------->>>
 
+# In session4/session_02, we used middleware to validate user search at route "users/search"
+# Now, let us use "celebrate" package provided by joi to validate the "search" ("users/search") as well as "uuid" ("users/:uuid") session4/session4_03
