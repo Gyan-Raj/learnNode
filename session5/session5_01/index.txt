@@ -1,0 +1,431 @@
+Till now upto session4_03, we saw how express framework works and how easy it makes to route different paths including dynamic routing
+  -we used const http=require("http"):provided by node, and  used const server=http.createServer((req,res)=>{res.writeHead();res.write();res.end()})
+  -we replaced require("http") by const express=require("express"):provided by express and used const app=express(), and then app.get("/urlPaths",(req,res)=>)
+  -we used req.params for dynamic routing
+  -we used req.query for query parameters
+  -we organised our code by writing callback functions of index.js in separate folder called controllers(session2/session2_03)
+  -In Express, the routes are served in the first come first server manner(session2/session2_04) and (session2/session2_05)
+  -added validation for search query parameters for gender and age to reduce wastage of compotational resources on server (session2/session2_06)
+  -used express router module to manage our routes in a separate file which allows us to club our routes together and manages API versioning. (session3/session3_01)
+  -used Joi validation library for validating the request before hitting the server(session3/session3_01)
+  -protected our routes using password "LetMeIn" (session3/session3_03)
+  -protected our routes by writing environment variables, which we write in .env file. We used dotenv library as devDependency to read .env files(session3/session3_04)
+  -protected our routes by using middlewares (which takes 3 parameters: req, res, next), SELECTIVELY as well as GLOBALLY(session4/session4_01)
+  -used middleware validators for validating "users/search" (session4/session4_02)
+  -used "celebrate" package provided by joi to validate the "search" ("users/search") as well as "uuid" ("users/:uuid") (session4/session4_03)
+  -learnt about few basic commands to insert data/document in mongoDB using mogosh (session4/session4_03)
+
+  show dbs
+  use crio
+  show collections
+  db.createCollection("blogs")    
+  db.blogs.find()
+  db.blogs.insertOne({publishedAt: null, content: "", author: []})
+  db.blogs.insertOne({publishedAt: null, content: "", author: "", title: ""})
+
+
+
+<<<---------------------------------------------------------------------------->>>
+
+Since MongoDB is schema-less, it means that there is no fixed structure for our document objects
+This can make our DB very inconsistent to store objects and query them later
+Moreover the data in MongoDB is stored in BSON and we need to convert it to JSON to make it usable.
+Here is where an Object Data Modeling library like Mongoose helps us.
+
+# Mongoose
+  -Mongoose is a preferred ODM library for: MongoDB, in: Node JS
+  -It manages relationships between data, provides schema validation, and is used to translate between objects in code and the representation of those objects in MongoDB.
+  -It will define a schema and provide us an interface to perform CRUD (create-read-update-delete) operations on MongoDB using Node JS
+
+# install Mongoose
+  npm i mongoose
+
+#
+  -create a folder called "schemas", which will have "schema" written inside it. A Mongoose schema defines the structure of the document, default values, validators, etc. It defines document properties through an object where the "key" name corresponds to the property name in the collection.
+    -inside this "schemas" folder, create a file named "blog.schema.js"
+    -inside this "blog.schema.js" file, 
+      -import mongoose using require, i.e., const mongoose = require("mongoose")
+      -define a schema, i.e.,  const blogSchema = new mongoose.Schema({title: String,  authors: [String], content: String, publishedAt: Date,});
+      -export this schema, i.e., module.exports = blogSchema;
+
+  -create another folder called "models", which will use schemas to create "model". A Mongoose model is a wrapper on the Mongoose schema that provides an interface to the database for creating, querying, updating, deleting records, etc.
+    -inside this "model" folder, create a file named "blog.model.js"
+    -inside this "blog.model.js" file, 
+      -import mongoose using require, i.e., const mongoose = require("mongoose")
+      -import blogSchema using require, i.e., const blogSchema = require("../schemas/blog.schema");
+      -create the model for the schema, i.e., const blogModel = mongoose.model("Blogs", blogSchema, "blogs");
+      -export this model, i.e., module.exports = blogModel;
+
+  -now, create another folder called "db", which will have mongoose connected to the db
+    -inside this "db" folder, create a file named "config.js", 
+    -inside this "config.js" file, 
+      -import mongoose using require, i.e., const mongoose = require("mongoose")
+      -then, create a mongoDB URI using mongoDB url, i.e., const MONGODB_URI="mongodb://127.0.0.1:27017"  
+      -at last, start the server, i.e., mongoose.connect(MONGODB_URI) => this will return a "promise", so we need to have "await" before it, i.e., await mongoose.connect(MONGODB_URI) => as we are using await, we need to wrap it in "async" function, i.e., const connectDB=async()=>{ await mongoose.connect(MONGODB_URI) } => as we have async-await, we should use try-catch block. So, finally we have const connectDB=async()=>{ try{ await mongoose.connect(MONGODB_URI);console.log("DB connected") }catch(error){console.log("Could not connect to DB", error)} }
+      -Now, just export this function, i.e., modle.exports=connectDB
+      -At last, call this function to index.js, i.e., const connectDB=require("./db/config.js")
+      -Finally, call this function, i.e., connectDB()
+  => we are now successfully connected to db
+
+//index.js
+const express = require("express");
+const app = express();
+const PORT = 8082;
+
+const userRouter = require("./routes/users.routes");
+const currencyRouter = require("./routes/currencies.routes");
+const { errors } = require("celebrate");
+
+const connectDB = require("./db/config.js");
+connectDB();
+
+app.get("/", (req, res) => {
+  res
+    .header({ "content-type": "text/html" })
+    .send(`<h1>Currency Database</h1>`);
+});
+
+app.use("/currencies", currencyRouter);
+
+app.use("/users", userRouter);
+
+app.use(errors());
+
+app.listen(PORT, () => {
+  console.log(`Server listening at port: ${PORT}`);
+});
+
+
+
+
+
+//routes/currencies.routes.js
+const express = require("express");
+const router = express.Router();
+const {
+  getCurrencies,
+  getCurrencyBySymbol,
+} = require("../controllers/currencies.controllers");
+
+const verifyAuth=require("../middlewares/verifyAuth")
+
+router.get("/", verifyAuth, getCurrencies);
+
+router.get("/:symbol", getCurrencyBySymbol);
+
+module.exports = router;
+
+
+
+
+
+//routes/users.routes.js
+const express = require("express");
+const {
+  getUsers,
+  getUserById,
+  searchUsers,
+} = require("../controllers/users.controllers");
+
+const router = express.Router();
+
+const verifyAuth = require("../middlewares/verifyAuth");
+
+router.use(verifyAuth);
+
+const userSearchValidator = require("../validations/userSearch.validation");
+const uuidValidator = require("../validations/uuid.validations");
+
+router.get("/", getUsers);
+router.get("/search", userSearchValidator, searchUsers);
+router.get("/:uuid", uuidValidator, getUserById);
+
+module.exports = router;
+
+
+
+
+//db/config.js
+const mongoose = require("mongoose");
+
+const MONGODB_URI = "mongodb://127.0.0.1:27017";
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI);
+    console.log("DB connected");
+  } catch (error) {
+    console.log("Could not connect to DB", error);
+  }
+};
+
+module.exports = connectDB;
+
+
+
+
+
+//schemas/blog.schema.js
+const mongoose = require("mongoose");
+
+const blogSchema = new mongoose.Schema({
+  title: String, //Title is string
+  authors: [String], //Authors is an array of strings
+  content: String, //Content is string
+  publishedAt: Date, //publishedAt is Date //NOTE:Date is a special datatype that is offered by mongoDB (which uses BSON), it is not present in JSON
+});
+
+// This schema will also trigger an internal validator for data types when storing data to DB.
+
+module.exports = blogSchema;
+
+
+
+
+
+
+
+//models/blog.model.js
+
+const mongoose = require("mongoose");
+
+const blogSchema = require("../schemas/blog.schema");
+
+const blogModel = mongoose.model("Blogs", blogSchema, "blogs");
+//.model takes in 3 arguments: name of model ("Blogs"); schema it will follow (blogSchema); and name of collection which is optional (blogs)
+//it is general convention to keep the first letter of the name of model in Uppercase (i.e., "Blogs", and not "blogs"). NOTE: as this is optional, so when we do not give any collection name, it will by default add a "s" to model name => if model name is "Blog", the by default collection name will be "Blogs"
+
+module.exports = blogModel;
+
+
+
+
+
+
+//middlewares/validators.js
+
+const validator = (schema) => (req, res, next) => {
+  const { error } = schema.validate(req);
+  if (error) {
+    return res.status(422).send({ message: error.details[0].message });
+  } else {
+    next();
+  }
+};
+
+module.exports = validator;
+
+
+
+
+
+//middlewares/verifyAuth.js
+const verifyAuth = (req, res, next) => {
+  if (req.headers.authorization !== process.env.password) {
+    return res.sendStatus(403);
+  } else {
+    next();
+  }
+};
+
+module.exports = verifyAuth;
+
+
+
+
+
+//controllers/currencies.controllers.js
+
+const currenciesJSON = require("../currencies.json");
+require("dotenv").config();
+const getCurrencies = (req, res) => {
+  console.log(process.env.password, "pass");
+  console.log(req.headers.authorization, "auth");
+
+  const { min_value } = req.query;
+  if (min_value) {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
+  } else {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data);
+  }
+};
+const getCurrencyBySymbol = (req, res) => {
+  const { symbol } = req.params;
+  const reqCurr = currenciesJSON.data.find(
+    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
+  );
+  if (reqCurr) {
+    return res.header({ "content-type": "application/json" }).send(reqCurr);
+  } else {
+    return res.status(404).send({ message: "invalid symbol" });
+  }
+};
+
+module.exports = {
+  getCurrencies,
+  getCurrencyBySymbol,
+};
+
+
+
+
+
+
+
+//controllers/users.controllers.js
+
+const usersJSON = require("../users.json");
+
+const getQueryErrors = require("../validations/userSearch.validation");
+
+const getUsers = (req, res) => {
+  res.header({ "content-type": "application/json" }).send(usersJSON.data);
+};
+const getUserById = (req, res) => {
+  const { uuid } = req.params;
+  const reqUser = usersJSON.data.find((user) => user.login.uuid === uuid);
+  if (reqUser) {
+    return res.header({ "content-type": "application/json" }).send(reqUser);
+  } else {
+    return res
+      .status(404)
+      .send({ message: `User with uuid: ${uuid} can not be found` });
+  }
+};
+
+const searchUsers = (req, res) => {
+  let { gender, age } = req.query;
+
+  if (gender && age) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(
+        usersJSON.data.filter(
+          (user) => user.gender === gender && user.dob.age === age
+        )
+      ); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
+  } else if (gender) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.gender === gender));
+  } else {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.dob.age === age)); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
+  }
+};
+
+module.exports = {
+  getUsers,
+  getUserById,
+  searchUsers,
+};
+
+
+
+//validations/userSearch.validation.js
+
+const { celebrate, Joi, errors, Segments } = require("celebrate");
+
+const validGenders = ["male", "female"];
+
+const userSearchValidator = celebrate({
+  [Segments.QUERY]: Joi.object({
+    gender: Joi.string().valid(...validGenders),
+    age: Joi.number().min(0).max(100),
+  }).or("gender", "age"),
+});
+
+module.exports = userSearchValidator;
+
+
+
+
+
+//validations/uuid.validations.js
+
+const { celebrate, Joi, errors, Segments } = require("celebrate");
+
+const uuidValidator = celebrate({
+  [Segments.PARAMS]: Joi.object({
+    uuid: Joi.string().guid({
+      version: ["uuidv4"],
+    }),
+  })
+});
+
+module.exports = uuidValidator;
+
+
+
+
+
+
+
+//.env
+
+password=LetMeIn
+
+
+
+//requests.rest
+
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies
+Authorization: LetMeIn
+###
+GET http://localhost:8082/currencies?min_value=0.001
+###
+GET http://localhost:8082/currencies/inr
+###
+GET http://localhost:8082/users
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-1-280c9f9cbf35     
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male&age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49&gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=xyz
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+Authorization: LetMeIn
+###
+
+
+
+
+
+
+
+
+
+<<<---------------------------------------------------------------------------->>>
+
+
+# NOTE: We have created "model", but have not utilized it yet, we will se in next session (session5/session5_02)
+
+# Also, we have several functions to perform CRUD operations,  we will se in next session (session5/session5_02)
