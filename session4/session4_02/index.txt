@@ -267,7 +267,7 @@ We will now use Validators as middlewares
   -Convert this getQueryErrors function into a validateSearchQuery middleware.
   -NOTE that: Middleware take in req, res, and next. It can return a response to the client and if everything goes well, they call the next middleware.
 
-For now, we need to only use this middleware for the /users/search route. Let’s see how to selectively apply middleware. Here,w e are applying it for users/search
+For now, we need to only use this middleware for the /users/search route. Let’s see how to selectively apply middleware. Here, we are applying it for users/search
 
 
 

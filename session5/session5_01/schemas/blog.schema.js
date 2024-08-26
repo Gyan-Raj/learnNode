@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+//NOTE: The first letter of datatypes are written in Capital
 const blogSchema = new mongoose.Schema({
   title: String, //Title is string
   authors: [String], //Authors is an array of strings

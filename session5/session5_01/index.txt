@@ -41,7 +41,7 @@ Here is where an Object Data Modeling library like Mongoose helps us.
   npm i mongoose
 
 #
-  -create a folder called "schemas", which will have "schema" written inside it. A Mongoose schema defines the structure of the document, default values, validators, etc. It defines document properties through an object where the "key" name corresponds to the property name in the collection.
+  -create a folder called "schemas", which will have "schema" written inside it. A Mongoose schema defines the structure of the document, default values, validators, etc. It defines document properties through an object where the "key" name corresponds to the property name in the collection. We need to define a schema so that we never pollute our DB with unwanted data type values for keys in our DB. A Mongoose schema defines the structure of the document, default values, validators, etc.
     -inside this "schemas" folder, create a file named "blog.schema.js"
     -inside this "blog.schema.js" file, 
       -import mongoose using require, i.e., const mongoose = require("mongoose")
@@ -65,7 +65,7 @@ Here is where an Object Data Modeling library like Mongoose helps us.
       -Now, just export this function, i.e., modle.exports=connectDB
       -At last, call this function to index.js, i.e., const connectDB=require("./db/config.js")
       -Finally, call this function, i.e., connectDB()
-  => we are now successfully connected to db
+  => we are now successfully connected to db 
 
 //index.js
 const express = require("express");
