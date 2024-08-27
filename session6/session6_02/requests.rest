@@ -1,0 +1,137 @@
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies
+Authorization: LetMeIn
+###
+GET http://localhost:8082/currencies?min_value=0.001
+###
+GET http://localhost:8082/currencies/inr
+###
+GET http://localhost:8082/users
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-1-280c9f9cbf35     
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male&age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49&gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=xyz
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+###
+GET http://localhost:8082/blogs/
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+
+{
+    "title": "First Blog",
+    "authors": "Gyan",
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+
+{
+    "title": "First Blog",
+    "authors": [
+        {
+            "fullName":"Gyan",
+            "twitterHandle":"gyan@twitter.com",
+            "email":"gyan@yahoo.com",
+            "image":"https://img-cdn.dom/profile/gyan.jpeg"
+        }
+    ],
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+
+{
+    "title": "Second Blog",
+    "authors": [
+        {
+            "fullName":"Gyan",
+            "twitterHandle":"gyan@twitter.com",
+            "email":"gyan@gmail.com",
+            "image":"https://img-cdn.dom/profile/gyan.jpeg"
+        }
+    ],
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+
+{
+    "title": "Second Blog",
+    "authors": [
+        {
+            "fullName":"Gyan",
+            "twitterHandle":"gyan@twitter.com",
+            "email":"gyan@yahoo.com",
+            "image":"http://img-cdn.dom/profile/gyan.jpeg"
+        }
+    ],
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+
+{
+    "title": "Second Blog",
+    "authors": [
+        {
+            "fullName":"Gyan",
+            "twitterHandle":"gyan@twitter.com",
+            "email":"gyan@yahoo.com",
+            "image":"https://img-cdn.dom/profile/gyan.jpeg"
+        }
+    ],
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+GET http://localhost:8082/blogs/66cdc996eda9501183b9417c
+###
+GET http://localhost:8082/blogs/66cdc996eda9501183b9417d
+###
+GET http://localhost:8082/blogs/123456
+###
+PATCH http://localhost:8082/blogs/66cdc996eda9501183b9417c
+Content-type:application/json
+
+{
+    "title": "First Blog updated"
+}
+###
+DELETE http://localhost:8082/blogs/66cda9b197ed2ef9c787d8ab
+###
