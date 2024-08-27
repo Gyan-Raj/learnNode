@@ -1,0 +1,1190 @@
+Till now upto session4_03, we saw how express framework works and how easy it makes to route different paths including dynamic routing
+  -we used const http=require("http"):provided by node, and  used const server=http.createServer((req,res)=>{res.writeHead();res.write();res.end()})
+  -we replaced require("http") by const express=require("express"):provided by express and used const app=express(), and then app.get("/urlPaths",(req,res)=>)
+  -we used req.params for dynamic routing
+  -we used req.query for query parameters
+  -we organised our code by writing callback functions of index.js in separate folder called controllers(session2/session2_03)
+  -In Express, the routes are served in the first come first server manner(session2/session2_04) and (session2/session2_05)
+  -added validation for search query parameters for gender and age to reduce wastage of compotational resources on server (session2/session2_06)
+
+  -used express router module to manage our routes in a separate file which allows us to club our routes together and manages API versioning. (session3/session3_01)
+  -used Joi validation library for validating the request before hitting the server(session3/session3_01)
+  -protected our routes using password "LetMeIn" (session3/session3_03)
+  -protected our routes by writing environment variables, which we write in .env file. We used dotenv library as devDependency to read .env files(session3/session3_04)
+
+  -protected our routes by using middlewares (which takes 3 parameters: req, res, next), SELECTIVELY as well as GLOBALLY(session4/session4_01)
+  -used middleware validators for validating "users/search" (session4/session4_02)
+  -used "celebrate" package provided by joi to validate the "search" ("users/search") as well as "uuid" ("users/:uuid") (session4/session4_03)
+  -learnt about few basic commands to insert data/document in mongoDB using mogosh (session4/session4_03)
+
+  -as mongosh has flexible schema, we may face some errors while iterating over database for iterating the data and rendering it on UI. So, we came to know about mongoose which is an ODM, and learnt about how to connect our app to the DB  (session5/session5_01)
+  -created a new POST method for posting new blog. BUT consoling the req.body gave us undefined as express does not parse the request by default. And we have to parse it explicitly if the content-type is application/json (The post method has header as content-type:application/json) (session5/session5_02)
+  -created a new POST method for posting new blog, and now we are not getting undefined in the console, rather we are getting the desired request body (session5/session5_03)
+  -successfully implemented the POST method for posting new blog (session5/session5_04)
+
+
+
+
+
+
+
+
+//index.js
+const express = require("express");
+const app = express();
+const PORT = 8082;
+const { errors } = require("celebrate");
+
+const userRouter = require("./routes/users.routes");
+const currencyRouter = require("./routes/currencies.routes");
+const blogRouter = require("./routes/blogs.routes");
+
+const connectDB = require("./db/config.js");
+connectDB();
+
+app.use(express.json());  //parses the request body as json if and only if Content-Type is application/json
+
+app.get("/", (req, res) => {
+  res
+    .header({ "content-type": "text/html" })
+    .send(`<h1>Currency Database</h1>`);
+});
+
+app.use("/currencies", currencyRouter);
+
+app.use("/users", userRouter);
+
+app.use("/blogs", blogRouter);
+
+app.use(errors());
+
+app.listen(PORT, () => {
+  console.log(`Server listening at port: ${PORT}`);
+});
+
+
+
+
+
+
+//routes/currencies.routes.js
+const express = require("express");
+const router = express.Router();
+const {
+  getCurrencies,
+  getCurrencyBySymbol,
+} = require("../controllers/currencies.controllers");
+
+const verifyAuth=require("../middlewares/verifyAuth")
+
+router.get("/", verifyAuth, getCurrencies);
+
+router.get("/:symbol", getCurrencyBySymbol);
+
+module.exports = router;
+
+
+
+
+
+//routes/users.routes.js
+const express = require("express");
+const {
+  getUsers,
+  getUserById,
+  searchUsers,
+} = require("../controllers/users.controllers");
+
+const router = express.Router();
+
+const verifyAuth = require("../middlewares/verifyAuth");
+
+router.use(verifyAuth);
+
+const userSearchValidator = require("../validations/userSearch.validation");
+const uuidValidator = require("../validations/uuid.validations");
+
+router.get("/", getUsers);
+router.get("/search", userSearchValidator, searchUsers);
+router.get("/:uuid", uuidValidator, getUserById);
+
+module.exports = router;
+
+
+
+
+
+//routes/blogs.routes.js
+const express = require("express");
+const router = express.Router();
+const {
+  getBlogs,
+  createNewBlog,
+  getBlogById,
+  updateBlogById,
+  deleteBlogById,
+} = require("../controllers/blogs.controllers");
+
+router.get("/", getBlogs);
+router.post("/new", createNewBlog);
+
+    // router.get("/:id", getBlogById);
+    // router.patch("/:id", updateBlogById);
+    // router.delete("/:id", deleteBlogById);
+    //As, getBlogById,updateBlogById, deleteBlogById have sane route paths ("/:id"), so we can use "clubbing" of these methods. "Clubbing" is provided by express Router, and can be utilized as:
+router.route("/:id").get(getBlogById).patch(updateBlogById).delete(deleteBlogById);
+
+module.exports = router;
+
+
+
+
+
+
+//db/config.js
+const mongoose = require("mongoose");
+
+const MONGODB_URI = "mongodb://127.0.0.1:27017/crio";
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI);
+    console.log("DB connected");
+  } catch (error) {
+    console.log("Could not connect to DB", error);
+  }
+};
+
+module.exports = connectDB;
+
+
+
+
+
+//schemas/blog.schema.js
+const mongoose = require("mongoose");
+
+const blogSchema = new mongoose.Schema({
+  title: String, //Title is string
+  authors: [String], //Authors is an array of strings
+  content: String, //Content is string
+  publishedAt: Date, //publishedAt is Date //NOTE:Date is a special datatype that is offered by mongoDB (which uses BSON), it is not present in JSON
+});
+
+// This schema will also trigger an internal validator for data types when storing data to DB.
+
+module.exports = blogSchema;
+
+
+
+
+
+
+
+//models/blog.model.js
+
+const mongoose = require("mongoose");
+
+const blogSchema = require("../schemas/blog.schema");
+
+const blogModel = mongoose.model("Blogs", blogSchema, "blogs");
+//.model takes in 3 arguments: name of model ("Blogs"); schema it will follow (blogSchema); and name of collection which is optional (blogs)
+//it is general convention to keep the first letter of the name of model in Uppercase (i.e., "Blogs", and not "blogs"). NOTE: as this is optional, so when we do not give any collection name, it will by default add a "s" to model name => if model name is "Blog", the by default collection name will be "Blogs"
+
+module.exports = blogModel;
+
+
+
+
+
+
+//middlewares/validators.js
+
+const validator = (schema) => (req, res, next) => {
+  const { error } = schema.validate(req);
+  if (error) {
+    return res.status(422).send({ message: error.details[0].message });
+  } else {
+    next();
+  }
+};
+
+module.exports = validator;
+
+
+
+
+
+//middlewares/verifyAuth.js
+const verifyAuth = (req, res, next) => {
+  if (req.headers.authorization !== process.env.password) {
+    return res.sendStatus(403);
+  } else {
+    next();
+  }
+};
+
+module.exports = verifyAuth;
+
+
+
+
+
+//controllers/currencies.controllers.js
+
+const currenciesJSON = require("../currencies.json");
+require("dotenv").config();
+const getCurrencies = (req, res) => {
+  console.log(process.env.password, "pass");
+  console.log(req.headers.authorization, "auth");
+
+  const { min_value } = req.query;
+  if (min_value) {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
+  } else {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data);
+  }
+};
+const getCurrencyBySymbol = (req, res) => {
+  const { symbol } = req.params;
+  const reqCurr = currenciesJSON.data.find(
+    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
+  );
+  if (reqCurr) {
+    return res.header({ "content-type": "application/json" }).send(reqCurr);
+  } else {
+    return res.status(404).send({ message: "invalid symbol" });
+  }
+};
+
+module.exports = {
+  getCurrencies,
+  getCurrencyBySymbol,
+};
+
+
+
+
+
+
+
+//controllers/users.controllers.js
+
+const usersJSON = require("../users.json");
+
+const getQueryErrors = require("../validations/userSearch.validation");
+
+const getUsers = (req, res) => {
+  res.header({ "content-type": "application/json" }).send(usersJSON.data);
+};
+const getUserById = (req, res) => {
+  const { uuid } = req.params;
+  const reqUser = usersJSON.data.find((user) => user.login.uuid === uuid);
+  if (reqUser) {
+    return res.header({ "content-type": "application/json" }).send(reqUser);
+  } else {
+    return res
+      .status(404)
+      .send({ message: `User with uuid: ${uuid} can not be found` });
+  }
+};
+
+const searchUsers = (req, res) => {
+  let { gender, age } = req.query;
+
+  if (gender && age) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(
+        usersJSON.data.filter(
+          (user) => user.gender === gender && user.dob.age === age
+        )
+      ); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
+  } else if (gender) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.gender === gender));
+  } else {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.dob.age === age)); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
+  }
+};
+
+module.exports = {
+  getUsers,
+  getUserById,
+  searchUsers,
+};
+
+
+
+
+//controllers/blogs.controllers.js
+const Blog = require("../models/blog.model");
+
+const getBlogs = (req, res) => {};
+
+const createNewBlog = async (req, res) => {
+  const { title, authors, content, publishedAt } = req.body;
+  try {
+    const newBlog = await Blog.create({
+      title,
+      authors,
+      content,
+      publishedAt,
+    });
+    res.send(newBlog);
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+const getBlogById = (req, res) => {};
+
+const deleteBlogById = (req, res) => {};
+
+const updateBlogById = (req, res) => {};
+
+module.exports = {
+  getBlogs,
+  createNewBlog,
+  getBlogById,
+  deleteBlogById,
+  updateBlogById,
+};
+
+
+
+
+
+
+
+//validations/userSearch.validation.js
+
+const { celebrate, Joi, errors, Segments } = require("celebrate");
+
+const validGenders = ["male", "female"];
+
+const userSearchValidator = celebrate({
+  [Segments.QUERY]: Joi.object({
+    gender: Joi.string().valid(...validGenders),
+    age: Joi.number().min(0).max(100),
+  }).or("gender", "age"),
+});
+
+module.exports = userSearchValidator;
+
+
+
+
+
+//validations/uuid.validations.js
+
+const { celebrate, Joi, errors, Segments } = require("celebrate");
+
+const uuidValidator = celebrate({
+  [Segments.PARAMS]: Joi.object({
+    uuid: Joi.string().guid({
+      version: ["uuidv4"],
+    }),
+  })
+});
+
+module.exports = uuidValidator;
+
+
+
+
+
+
+
+//.env
+
+password=LetMeIn
+
+
+
+//requests.rest
+
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies
+Authorization: LetMeIn
+###
+GET http://localhost:8082/currencies?min_value=0.001
+###
+GET http://localhost:8082/currencies/inr
+###
+GET http://localhost:8082/users
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-1-280c9f9cbf35     
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male&age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49&gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=xyz
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+###
+GET http://localhost:8082/blogs/
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+{
+    "title": "First Blog",
+    "authors": "Gyan",
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+PATCH http://localhost:8082/blogs/id=
+###
+DELETE http://localhost:8082/blogs/id=
+###
+
+
+
+
+
+
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+
+
+
+
+# As discussed, we have one more method of creating blog: by using "new" keyword
+    const createNewBlog = async (req, res) => {
+      const { title, authors, content, publishedAt } = req.body;
+      try {
+        const newBlog = new Blog({
+          title,
+          authors,
+          content,
+          publishedAt,
+        });
+        await newBlog.save();
+        res.send(newBlog);
+      } catch (error) {
+        res.status(500).send({ message: "Something went wrong!!!", error });
+      }
+    };
+
+# Now we will be implementing the other controller functions 
+  const getBlogs = async (req, res) => {
+    try {
+      res.send(await Blog.find({})); //OR res.send(await Blog.find());
+    } catch (error) {
+      res.status(500).send({ message: "Something went wrong!!!", error });
+    }
+  };
+
+  const createNewBlog = async (req, res) => {
+    const { title, authors, content, publishedAt } = req.body;
+    try {
+      const newBlog = new Blog({
+        title,
+        authors,
+        content,
+        publishedAt,
+      });
+      await newBlog.save();
+      res.status(201).send(newBlog);
+    } catch (error) {
+      res.status(500).send({ message: "Something went wrong!!!", error });
+    }
+  };
+
+  const getBlogById = async (req, res) => {
+    try {
+      const reqBlog = await Blog.findById(req.params.id);
+      if (reqBlog) {
+        return res.send(reqBlog);
+      } else {
+        return res
+          .status(404)
+          .send({ message: "Could not find a blog with this id" }); //to handle the case when given id (which is valid) is not present in database
+      }
+    } catch (error) {
+      if (error.name === "CastError" && error.kind === "ObjectId") {
+        //to handle any invalid id
+        return res.status(422).send({ message: "Invalid blog id" });
+      } else {
+        res.status(500).send({ message: "Something went wrong!!!", error });
+      }
+    }
+  };
+
+  const updateBlogById = async (req, res) => {
+    try {
+      const updatedBlog = await Blog.findByIdAndUpdate(req.params.id, req.body);
+      res.send(updatedBlog);
+    } catch (error) {
+      res.status(500).send({ message: "Something went wrong!!!", error });
+    }
+  };
+
+  NOTE: when we write this function, and hit the request, it will get updated by we will be getting the older blog and not the updated blog. This is because the default value for "returnDocument" is set to "before", which will return the document before the update was applied.
+  So, we need to change it to "after", i.e.:
+
+  const updateBlogById = async (req, res) => {
+    try {
+      const updatedBlog = await Blog.findByIdAndUpdate(req.params.id, req.body, {
+        returnDocument: "after",                                                        //set returnDocument as "after"
+      });
+      res.send(updatedBlog);
+    } catch (error) {
+      res.status(500).send({ message: "Something went wrong!!!", error });
+    }
+  };
+
+  However, we have another way: we can set "new" as "true" which is set to false by default
+  i.e.:
+  const updateBlogById = async (req, res) => {
+    try {
+      const updatedBlog = await Blog.findByIdAndUpdate(req.params.id, req.body, {
+        new: true,                                                                      //set new:true
+      });
+      res.send(updatedBlog);
+    } catch (error) {
+      res.status(500).send({ message: "Something went wrong!!!", error });
+    }
+  };
+
+So, all the methods we are using above are of mongoose, let us go through few methods used:
+  https://mongoosejs.com/docs/api/model.html#Model.find()
+  https://mongoosejs.com/docs/api/model.html#Model.prototype.save()
+  https://mongoosejs.com/docs/api/model.html#Model.create()
+  https://mongoosejs.com/docs/api/model.html#Model.findById()
+  https://mongoosejs.com/docs/api/model.html#Model.findByIdAndUpdate()
+  https://mongoosejs.com/docs/api/model.html#Model.findByIdAndDelete()
+
+# In this session: we made changes in //controllers/blogs.controllers.js and in requests.rest
+
+
+
+
+//index.js
+const express = require("express");
+const app = express();
+const PORT = 8082;
+const { errors } = require("celebrate");
+
+const userRouter = require("./routes/users.routes");
+const currencyRouter = require("./routes/currencies.routes");
+const blogRouter = require("./routes/blogs.routes");
+
+const connectDB = require("./db/config.js");
+connectDB();
+
+app.use(express.json());  //parses the request body as json if and only if Content-Type is application/json
+
+app.get("/", (req, res) => {
+  res
+    .header({ "content-type": "text/html" })
+    .send(`<h1>Currency Database</h1>`);
+});
+
+app.use("/currencies", currencyRouter);
+
+app.use("/users", userRouter);
+
+app.use("/blogs", blogRouter);
+
+app.use(errors());
+
+app.listen(PORT, () => {
+  console.log(`Server listening at port: ${PORT}`);
+});
+
+
+
+
+
+
+//routes/currencies.routes.js
+const express = require("express");
+const router = express.Router();
+const {
+  getCurrencies,
+  getCurrencyBySymbol,
+} = require("../controllers/currencies.controllers");
+
+const verifyAuth=require("../middlewares/verifyAuth")
+
+router.get("/", verifyAuth, getCurrencies);
+
+router.get("/:symbol", getCurrencyBySymbol);
+
+module.exports = router;
+
+
+
+
+
+//routes/users.routes.js
+const express = require("express");
+const {
+  getUsers,
+  getUserById,
+  searchUsers,
+} = require("../controllers/users.controllers");
+
+const router = express.Router();
+
+const verifyAuth = require("../middlewares/verifyAuth");
+
+router.use(verifyAuth);
+
+const userSearchValidator = require("../validations/userSearch.validation");
+const uuidValidator = require("../validations/uuid.validations");
+
+router.get("/", getUsers);
+router.get("/search", userSearchValidator, searchUsers);
+router.get("/:uuid", uuidValidator, getUserById);
+
+module.exports = router;
+
+
+
+
+
+//routes/blogs.routes.js
+const express = require("express");
+const router = express.Router();
+const {
+  getBlogs,
+  createNewBlog,
+  getBlogById,
+  updateBlogById,
+  deleteBlogById,
+} = require("../controllers/blogs.controllers");
+
+router.get("/", getBlogs);
+router.post("/new", createNewBlog);
+
+// router.get("/:id", getBlogById);
+// router.patch("/:id", updateBlogById);
+// router.delete("/:id", deleteBlogById);
+//As, getBlogById,updateBlogById, deleteBlogById have sane route paths ("/:id"), so we can use "clubbing" of these methods. "Clubbing" is provided by express Router, and can be utilized as:
+router
+  .route("/:id")
+  .get(getBlogById)
+  .patch(updateBlogById)
+  .delete(deleteBlogById);
+
+module.exports = router;
+
+
+
+
+
+
+
+//db/config.js
+const mongoose = require("mongoose");
+
+const MONGODB_URI = "mongodb://127.0.0.1:27017/crio";
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI);
+    console.log("DB connected");
+  } catch (error) {
+    console.log("Could not connect to DB", error);
+  }
+};
+
+module.exports = connectDB;
+
+
+
+
+
+//schemas/blog.schema.js
+const mongoose = require("mongoose");
+
+const blogSchema = new mongoose.Schema({
+  title: String,
+  authors: [String],
+  content: String,
+  publishedAt: Date,
+});
+
+module.exports = blogSchema;
+
+
+
+
+
+
+
+
+//models/blog.model.js
+
+const mongoose = require("mongoose");
+
+const blogSchema = require("../schemas/blog.schema");
+
+const blogModel = mongoose.model("Blogs", blogSchema, "blogs");
+//.model takes in 3 arguments: name of model ("Blogs"); schema it will follow (blogSchema); and name of collection which is optional (blogs)
+//it is general convention to keep the first letter of the name of model in Uppercase (i.e., "Blogs", and not "blogs"). NOTE: as this is optional, so when we do not give any collection name, it will by default add a "s" to model name => if model name is "Blog", the by default collection name will be "Blogs"
+
+module.exports = blogModel;
+
+
+
+
+
+
+//middlewares/validators.js
+
+const validator = (schema) => (req, res, next) => {
+  const { error } = schema.validate(req);
+  if (error) {
+    return res.status(422).send({ message: error.details[0].message });
+  } else {
+    next();
+  }
+};
+
+module.exports = validator;
+
+
+
+
+
+//middlewares/verifyAuth.js
+const verifyAuth = (req, res, next) => {
+  if (req.headers.authorization !== process.env.password) {
+    return res.sendStatus(403);
+  } else {
+    next();
+  }
+};
+
+module.exports = verifyAuth;
+
+
+
+
+
+//controllers/currencies.controllers.js
+
+const currenciesJSON = require("../currencies.json");
+require("dotenv").config();
+const getCurrencies = (req, res) => {
+  console.log(process.env.password, "pass");
+  console.log(req.headers.authorization, "auth");
+
+  const { min_value } = req.query;
+  if (min_value) {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
+  } else {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data);
+  }
+};
+const getCurrencyBySymbol = (req, res) => {
+  const { symbol } = req.params;
+  const reqCurr = currenciesJSON.data.find(
+    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
+  );
+  if (reqCurr) {
+    return res.header({ "content-type": "application/json" }).send(reqCurr);
+  } else {
+    return res.status(404).send({ message: "invalid symbol" });
+  }
+};
+
+module.exports = {
+  getCurrencies,
+  getCurrencyBySymbol,
+};
+
+
+
+
+
+
+
+//controllers/users.controllers.js
+
+const usersJSON = require("../users.json");
+
+const getQueryErrors = require("../validations/userSearch.validation");
+
+const getUsers = (req, res) => {
+  res.header({ "content-type": "application/json" }).send(usersJSON.data);
+};
+const getUserById = (req, res) => {
+  const { uuid } = req.params;
+  const reqUser = usersJSON.data.find((user) => user.login.uuid === uuid);
+  if (reqUser) {
+    return res.header({ "content-type": "application/json" }).send(reqUser);
+  } else {
+    return res
+      .status(404)
+      .send({ message: `User with uuid: ${uuid} can not be found` });
+  }
+};
+
+const searchUsers = (req, res) => {
+  let { gender, age } = req.query;
+
+  if (gender && age) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(
+        usersJSON.data.filter(
+          (user) => user.gender === gender && user.dob.age === age
+        )
+      ); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
+  } else if (gender) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.gender === gender));
+  } else {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.dob.age === age)); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
+  }
+};
+
+module.exports = {
+  getUsers,
+  getUserById,
+  searchUsers,
+};
+
+
+
+
+//controllers/blogs.controllers.js
+const Blog = require("../models/blog.model");
+
+const getBlogs = async (req, res) => {
+  try {
+    res.send(await Blog.find({})); //OR res.send(await Blog.find());
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+// const createNewBlog = async (req, res) => {
+//   const { title, authors, content, publishedAt } = req.body;
+//   try {
+//     const newBlog = await Blog.create({
+//       title,
+//       authors,
+//       content,
+//       publishedAt,
+//     });
+//     res.status(201).send(newBlog);
+//   } catch (error) {
+//     res.status(500).send({ message: "Something went wrong!!!", error });
+//   }
+// };
+
+const createNewBlog = async (req, res) => {
+  const { title, authors, content, publishedAt } = req.body;
+  try {
+    const newBlog = new Blog({
+      title,
+      authors,
+      content,
+      publishedAt,
+    });
+    await newBlog.save();
+    res.status(201).send(newBlog);
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+const getBlogById = async (req, res) => {
+  try {
+    const reqBlog = await Blog.findById(req.params.id);
+    if (reqBlog) {
+      return res.send(reqBlog);
+    } else {
+      return res
+        .status(404)
+        .send({ message: "Could not find a blog with this id" }); //to handle the case when given id (which is valid) is not present in database
+    }
+  } catch (error) {
+    if (error.name === "CastError" && error.kind === "ObjectId") {
+      //to handle any invalid id
+      return res.status(422).send({ message: "Invalid blog id" });
+    } else {
+      res.status(500).send({ message: "Something went wrong!!!", error });
+    }
+  }
+};
+
+const updateBlogById = async (req, res) => {
+  try {
+    const reqBlog = await Blog.findById(req.params.id);
+    if (reqBlog) {
+      const updatedBlog = await Blog.findByIdAndUpdate(
+        req.params.id,
+        req.body,
+        {
+          returnDocument: "after",
+        }
+      );
+      res.send(updatedBlog);
+    } else {
+      res.status(404).send({ message: "Could not find a blog with this id" });
+    }
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+// const updateBlogById = async (req, res) => {
+//   try {
+//     const reqBlog = await Blog.findById(req.params.id);
+//     if (reqBlog) {
+//       //we will update only if the blog with given id exists
+//       const updatedBlog = await Blog.findByIdAndUpdate(
+//         req.params.id,
+//         req.body,
+//         {
+//           new: true,
+//         }
+//       );
+//       res.send(updatedBlog);
+//     } else {
+//       //we will handle the case when user tries to update with an id which does not exist
+//       res.status(404).send({ message: "Could not find a blog with this id" });
+//     }
+//   } catch (error) {
+//     res.status(500).send({ message: "Something went wrong!!!", error });
+//   }
+// };
+
+const deleteBlogById = async (req, res) => {
+  try {
+    await Blog.findByIdAndDelete(req.params.id);
+    res.sendStatus(204); //status code 204 is used for delete requests which basically signifies "no content"
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+module.exports = {
+  getBlogs,
+  createNewBlog,
+  getBlogById,
+  deleteBlogById,
+  updateBlogById,
+};
+
+
+
+
+
+
+
+//validations/userSearch.validation.js
+
+const { celebrate, Joi, errors, Segments } = require("celebrate");
+
+const validGenders = ["male", "female"];
+
+const userSearchValidator = celebrate({
+  [Segments.QUERY]: Joi.object({
+    gender: Joi.string().valid(...validGenders),
+    age: Joi.number().min(0).max(100),
+  }).or("gender", "age"),
+});
+
+module.exports = userSearchValidator;
+
+
+
+
+
+//validations/uuid.validations.js
+
+const { celebrate, Joi, errors, Segments } = require("celebrate");
+
+const uuidValidator = celebrate({
+  [Segments.PARAMS]: Joi.object({
+    uuid: Joi.string().guid({
+      version: ["uuidv4"],
+    }),
+  })
+});
+
+module.exports = uuidValidator;
+
+
+
+
+
+
+
+//.env
+
+password=LetMeIn
+
+
+
+//requests.rest
+
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies
+Authorization: LetMeIn
+###
+GET http://localhost:8082/currencies?min_value=0.001
+###
+GET http://localhost:8082/currencies/inr
+###
+GET http://localhost:8082/users
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-1-280c9f9cbf35     
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male&age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49&gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=xyz
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+###
+GET http://localhost:8082/blogs/
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+
+{
+    "title": "First Blog",
+    "authors": "Gyan",
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+GET http://localhost:8082/blogs/66cd8e8ab077cb2e407af581
+###
+GET http://localhost:8082/blogs/66cd8e8ab077cb2e407af582
+###
+GET http://localhost:8082/blogs/123456
+###
+PATCH http://localhost:8082/blogs/66cd8e8ab077cb2e407af581
+Content-type:application/json
+
+{
+    "title": "First Blog updated"
+}
+###
+DELETE http://localhost:8082/blogs/66cd8e8ab077cb2e407af581
+###
+
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+
+# Now, everything is fine, we must observe that in POST request, when we are sending body as:
+    POST http://localhost:8082/blogs/new
+    Content-type:application/json
+
+    {
+        "title": "First Blog",
+        "authors": "Gyan",                          //NOTE that, this is not an array, but still when we hit the post request get authors as an array, i.e., "authors": [ "Gyan" ], HOW? => Ans: Mongoose does the typecasting for us. => as in schemas/blog.schema.js, we have authors: [String], so monngoose will typecast the author as an array
+        "content": "Blog on technology",
+        "publishedAt": null
+    }
+  
+  What if, we have a request like:
+    POST http://localhost:8082/blogs/new
+    Content-type:application/json
+
+    {
+        "title": "First Blog",
+        "authors": 56,                          //In response, we will get , i.e., "authors": [ "56" ]
+        "content": "Blog on technology",
+        "publishedAt": null
+    }
+
+  What if, we have a request like:
+    POST http://localhost:8082/blogs/new
+    Content-type:application/json
+
+    {
+        "title": "First Blog",
+        "authors": true,                          //In response, we will get , i.e., "authors": [ "true" ]
+        "content": "Blog on technology",
+        "publishedAt": null
+    }
+
+  What if, we have a request like:
+    POST http://localhost:8082/blogs/new
+    Content-type:application/json
+
+    {
+        "title": "First Blog",
+        "authors": {
+            "name":"Gyan"                       //In response, we will get "CastError", with a message saying Cast to [string] failed for value \"[ { name: 'Gyan' } ]\" (type string) at path \"authors.0\" because of \"CastError\
+        },
+        "content": "Blog on technology",
+        "publishedAt": null
+    }
+
+  So, basically if we don't want values to be typecasted implicitly, we have to update our schema or it will be better if we handle this in our validation layer
+
+# Also, if we observre, we can see that in controller functions, we are repeating too many line of codes which we should not do (DRY principle). So, we must create Middlewares, which we will be doing in next session (session5/session5_06)
