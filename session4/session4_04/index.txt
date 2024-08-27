@@ -1,4 +1,4 @@
-Till now upto session4_03, we saw how express framework works and how easy it makes to route different paths including dynamic routing
+Till now upto session4_04, we saw how express framework works and how easy it makes to route different paths including dynamic routing
   -we used const http=require("http"):provided by node, and  used const server=http.createServer((req,res)=>{res.writeHead();res.write();res.end()})
   -we replaced require("http") by const express=require("express"):provided by express and used const app=express(), and then app.get("/urlPaths",(req,res)=>)
   -we used req.params for dynamic routing
@@ -389,6 +389,8 @@ NOTE: We can also use MongoDBCompass's terminal to run query
   ♦ db.createCollection("collectionName") : will create a collection with name collectionName in that particular database  (eg. db.createCollection("blogs"))
   ♦ db.collectionName.find() : will show everything (every document) that is present in that collectionName (eg. db.blogs.find())
   ♦ db.collectionName.insertOne() : will insert a document inside that collection (eg. db.blogs.insertOne({publishedAt: null, content: "", author: []}))
+  ♦ db.collectionName.drop() : will delete the entire collection from that database
+  ♦ show collections : will show all the collections present in the database
 
 # let us run following commands:
   show dbs

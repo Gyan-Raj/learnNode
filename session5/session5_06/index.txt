@@ -1,4 +1,4 @@
-Till now upto session4_03, we saw how express framework works and how easy it makes to route different paths including dynamic routing
+Till now upto session5_06, we saw how express framework works and how easy it makes to route different paths including dynamic routing
   -we used const http=require("http"):provided by node, and  used const server=http.createServer((req,res)=>{res.writeHead();res.write();res.end()})
   -we replaced require("http") by const express=require("express"):provided by express and used const app=express(), and then app.get("/urlPaths",(req,res)=>)
   -we used req.params for dynamic routing
@@ -1124,4 +1124,4 @@ DELETE http://localhost:8082/blogs/66cda9b197ed2ef9c787d8ab
 # Right now we made an update using PATCH request, but we’ll never know when the update was made!!! Suppose if we are making an autosave feature on our frontend, we’ll need to know the time the document was last updated, right?
   So, we can add the created and the updated at timestamps in the schema by specifying an option: { timestamps: true }
 
-# Also, we can try to make our schema more complex by adding few validations (https://mongoosejs.com/docs/validation.html#validation) (session5/session5_06)
+# Also, we can try to make our schema more complex by adding few validations (https://mongoosejs.com/docs/validation.html#validation) (session5/session5_07)

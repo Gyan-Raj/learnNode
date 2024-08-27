@@ -1,4 +1,4 @@
-Till now upto session4_03, we saw how express framework works and how easy it makes to route different paths including dynamic routing
+Till now upto session5_03, we saw how express framework works and how easy it makes to route different paths including dynamic routing
   -we used const http=require("http"):provided by node, and  used const server=http.createServer((req,res)=>{res.writeHead();res.write();res.end()})
   -we replaced require("http") by const express=require("express"):provided by express and used const app=express(), and then app.get("/urlPaths",(req,res)=>)
   -we used req.params for dynamic routing

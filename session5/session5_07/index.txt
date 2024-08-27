@@ -1,4 +1,4 @@
-Till now upto session5_01, we saw how express framework works and how easy it makes to route different paths including dynamic routing
+Till now upto session5_06, we saw how express framework works and how easy it makes to route different paths including dynamic routing
   -we used const http=require("http"):provided by node, and  used const server=http.createServer((req,res)=>{res.writeHead();res.write();res.end()})
   -we replaced require("http") by const express=require("express"):provided by express and used const app=express(), and then app.get("/urlPaths",(req,res)=>)
   -we used req.params for dynamic routing
@@ -6,78 +6,43 @@ Till now upto session5_01, we saw how express framework works and how easy it ma
   -we organised our code by writing callback functions of index.js in separate folder called controllers(session2/session2_03)
   -In Express, the routes are served in the first come first server manner(session2/session2_04) and (session2/session2_05)
   -added validation for search query parameters for gender and age to reduce wastage of compotational resources on server (session2/session2_06)
+
   -used express router module to manage our routes in a separate file which allows us to club our routes together and manages API versioning. (session3/session3_01)
   -used Joi validation library for validating the request before hitting the server(session3/session3_01)
   -protected our routes using password "LetMeIn" (session3/session3_03)
   -protected our routes by writing environment variables, which we write in .env file. We used dotenv library as devDependency to read .env files(session3/session3_04)
+
   -protected our routes by using middlewares (which takes 3 parameters: req, res, next), SELECTIVELY as well as GLOBALLY(session4/session4_01)
   -used middleware validators for validating "users/search" (session4/session4_02)
   -used "celebrate" package provided by joi to validate the "search" ("users/search") as well as "uuid" ("users/:uuid") (session4/session4_03)
   -learnt about few basic commands to insert data/document in mongoDB using mogosh (session4/session4_03)
 
-  show dbs
-  use crio
-  show collections
-  db.createCollection("blogs")    
-  db.blogs.find()
-  db.blogs.insertOne({publishedAt: null, content: "", author: []})
-  db.blogs.insertOne({publishedAt: null, content: "", author: "", title: ""})
+  -as mongosh has flexible schema, we may face some errors while iterating over database for iterating the data and rendering it on UI. So, we came to know about mongoose which is an ODM, and learnt about how to connect our app to the DB  (session5/session5_01)
+  -created a new POST method for posting new blog. BUT consoling the req.body gave us undefined as express does not parse the request by default. And we have to parse it explicitly if the content-type is application/json (The post method has header as content-type:application/json) (session5/session5_02)
+  -created a new POST method for posting new blog, and now we are not getting undefined in the console, rather we are getting the desired request body (session5/session5_03)
+  -successfully implemented the POST method for posting new blog (session5/session5_04)
+  -successfully implemented all the controller functions (session5/session5_05)
+  -improved the controller functions by adding middleware (findAndAttachBlogToReq.js) (session5/session5_05)
 
 
 
-<<<---------------------------------------------------------------------------->>>
 
-Since MongoDB is schema-less, it means that there is no fixed structure for our document objects
-This can make our DB very inconsistent to store objects and query them later
-Moreover the data in MongoDB is stored in BSON and we need to convert it to JSON to make it usable.
-Here is where an Object Data Modeling library like Mongoose helps us.
 
-# Mongoose
-  -Mongoose is a preferred ODM library for: MongoDB, in: Node JS
-  -It manages relationships between data, provides schema validation, and is used to translate between objects in code and the representation of those objects in MongoDB.
-  -It will define a schema and provide us an interface to perform CRUD (create-read-update-delete) operations on MongoDB using Node JS
-
-# install Mongoose
-  npm i mongoose
-
-#
-  -create a folder called "schemas", which will have "schema" written inside it. A Mongoose schema defines the structure of the document, default values, validators, etc. It defines document properties through an object where the "key" name corresponds to the property name in the collection. We need to define a schema so that we never pollute our DB with unwanted data type values for keys in our DB. A Mongoose schema defines the structure of the document, default values, validators, etc.
-    -inside this "schemas" folder, create a file named "blog.schema.js"
-    -inside this "blog.schema.js" file, 
-      -import mongoose using require, i.e., const mongoose = require("mongoose")
-      -define a schema, i.e.,  const blogSchema = new mongoose.Schema({title: String,  authors: [String], content: String, publishedAt: Date,});
-      -export this schema, i.e., module.exports = blogSchema;
-
-  -create another folder called "models", which will use schemas to create "model". A Mongoose model is a wrapper on the Mongoose schema that provides an interface to the database for creating, querying, updating, deleting records, etc.
-    -inside this "model" folder, create a file named "blog.model.js"
-    -inside this "blog.model.js" file, 
-      -import mongoose using require, i.e., const mongoose = require("mongoose")
-      -import blogSchema using require, i.e., const blogSchema = require("../schemas/blog.schema");
-      -create the model for the schema, i.e., const blogModel = mongoose.model("Blogs", blogSchema, "blogs");
-      -export this model, i.e., module.exports = blogModel;
-
-  -now, create another folder called "db", which will have mongoose connected to the db
-    -inside this "db" folder, create a file named "config.js", 
-    -inside this "config.js" file, 
-      -import mongoose using require, i.e., const mongoose = require("mongoose")
-      -then, create a mongoDB URI using mongoDB url, i.e., const MONGODB_URI="mongodb://127.0.0.1:27017"  
-      -at last, start the server, i.e., mongoose.connect(MONGODB_URI) => this will return a "promise", so we need to have "await" before it, i.e., await mongoose.connect(MONGODB_URI) => as we are using await, we need to wrap it in "async" function, i.e., const connectDB=async()=>{ await mongoose.connect(MONGODB_URI) } => as we have async-await, we should use try-catch block. So, finally we have const connectDB=async()=>{ try{ await mongoose.connect(MONGODB_URI);console.log("DB connected") }catch(error){console.log("Could not connect to DB", error)} }
-      -Now, just export this function, i.e., modle.exports=connectDB
-      -At last, call this function to index.js, i.e., const connectDB=require("./db/config.js")
-      -Finally, call this function, i.e., connectDB()
-  => we are now successfully connected to db 
 
 //index.js
 const express = require("express");
 const app = express();
 const PORT = 8082;
+const { errors } = require("celebrate");
 
 const userRouter = require("./routes/users.routes");
 const currencyRouter = require("./routes/currencies.routes");
-const { errors } = require("celebrate");
+const blogRouter = require("./routes/blogs.routes");
 
 const connectDB = require("./db/config.js");
 connectDB();
+
+app.use(express.json());  //parses the request body as json if and only if Content-Type is application/json
 
 app.get("/", (req, res) => {
   res
@@ -89,11 +54,14 @@ app.use("/currencies", currencyRouter);
 
 app.use("/users", userRouter);
 
+app.use("/blogs", blogRouter);
+
 app.use(errors());
 
 app.listen(PORT, () => {
   console.log(`Server listening at port: ${PORT}`);
 });
+
 
 
 
@@ -145,10 +113,40 @@ module.exports = router;
 
 
 
+
+//routes/blogs.routes.js
+const express = require("express");
+const router = express.Router();
+
+const {
+  getBlogs,
+  createNewBlog,
+  getBlogById,
+  updateBlogById,
+  deleteBlogById,
+} = require("../controllers/blogs.controllers");
+const findAndAttachBlogToReq = require("../middlewares/findAndAttachBlogToReq");
+
+router.get("/", getBlogs);
+router.post("/new", createNewBlog);
+
+router.get("/:id", findAndAttachBlogToReq, getBlogById);
+router.patch("/:id", findAndAttachBlogToReq, updateBlogById);
+router.delete("/:id", findAndAttachBlogToReq, deleteBlogById);
+
+module.exports = router;
+
+
+
+
+
+
+
+
 //db/config.js
 const mongoose = require("mongoose");
 
-const MONGODB_URI = "mongodb://127.0.0.1:27017";
+const MONGODB_URI = "mongodb://127.0.0.1:27017/crio";
 
 const connectDB = async () => {
   try {
@@ -169,15 +167,14 @@ module.exports = connectDB;
 const mongoose = require("mongoose");
 
 const blogSchema = new mongoose.Schema({
-  title: String, //Title is string
-  authors: [String], //Authors is an array of strings
-  content: String, //Content is string
-  publishedAt: Date, //publishedAt is Date //NOTE:Date is a special datatype that is offered by mongoDB (which uses BSON), it is not present in JSON
+  title: String,
+  authors: [String],
+  content: String,
+  publishedAt: Date,
 });
 
-// This schema will also trigger an internal validator for data types when storing data to DB.
-
 module.exports = blogSchema;
+
 
 
 
@@ -220,6 +217,7 @@ module.exports = validator;
 
 
 //middlewares/verifyAuth.js
+
 const verifyAuth = (req, res, next) => {
   if (req.headers.authorization !== process.env.password) {
     return res.sendStatus(403);
@@ -229,6 +227,33 @@ const verifyAuth = (req, res, next) => {
 };
 
 module.exports = verifyAuth;
+
+
+
+//middlewares/findAndAttachBlogToReq.js
+
+const Blog = require("../models/blog.model");
+
+const findAndAttachBlogToReq = async (req, res, next) => {
+  try {
+    const reqBlog = await Blog.findById(req.params.id);
+    if (reqBlog) {
+      req.reqBlog = reqBlog; //if we have a blog with the id, we are attaching a key called "reqBlog " to the req with value nothing but the blog with that id (reqBlog)
+      return next();
+    } else {
+      res.status(404).send({ message: "Could not find a blog with this id" });
+    }
+  } catch (error) {
+    if (error.name === "CastError" && error.kind === "ObjectId") {
+      return res.status(422).send({ message: "Invalid blog id" });
+    } else {
+      res.status(500).send({ message: "Something went wrong!!!", error });
+    }
+  }
+};
+
+module.exports = findAndAttachBlogToReq;
+
 
 
 
@@ -327,6 +352,74 @@ module.exports = {
 
 
 
+
+//controllers/blogs.controllers.js
+const Blog = require("../models/blog.model");
+
+const getBlogs = async (req, res) => {
+  try {
+    res.send(await Blog.find({}));
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+const createNewBlog = async (req, res) => {
+  const { title, authors, content, publishedAt } = req.body;
+  try {
+    const newBlog = new Blog({
+      title,
+      authors,
+      content,
+      publishedAt,
+    });
+
+    await newBlog.save();
+    res.status(201).send(newBlog);
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+const getBlogById = (req, res) => {
+  return res.send(req.reqBlog);
+};
+
+const updateBlogById = async (req, res) => {
+  try {
+    const updatedBlog = await Blog.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
+    res.send(updatedBlog);
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+const deleteBlogById = async (req, res) => {
+  try {
+    await Blog.findByIdAndDelete(req.params.id);
+    res.sendStatus(204);
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+module.exports = {
+  getBlogs,
+  createNewBlog,
+  getBlogById,
+  deleteBlogById,
+  updateBlogById,
+};
+
+
+
+
+
+
+
+
 //validations/userSearch.validation.js
 
 const { celebrate, Joi, errors, Segments } = require("celebrate");
@@ -414,6 +507,52 @@ Authorization: LetMeIn
 GET http://localhost:8082/users/search?age=-50
 Authorization: LetMeIn
 ###
+GET http://localhost:8082/users/search?age=-50
+###
+GET http://localhost:8082/blogs/
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+
+{
+    "title": "First Blog",
+    "authors": "Gyan",
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+GET http://localhost:8082/blogs/66cda9d4383d5f9a6fa04723
+###
+GET http://localhost:8082/blogs/66cda9b197ed2ef9c787d8ac
+###
+GET http://localhost:8082/blogs/123456
+###
+PATCH http://localhost:8082/blogs/66cda9b197ed2ef9c787d8ab
+Content-type:application/json
+
+{
+    "title": "First Blog updated"
+}
+###
+DELETE http://localhost:8082/blogs/66cda9b197ed2ef9c787d8ab
+###
+
+
+
+
+
+
+
+
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+
+
+# Till now we made an update using PATCH request, but we’ll never know when the update was made!!! Suppose if we are making an autosave feature on our frontend, we’ll need to know the time the document was last updated, right?
+  So, we can add the created and the updated at timestamps in the schema by specifying an option: { timestamps: true }
+
+# Also, we can try to make our schema more complex by adding few validations (https://mongoosejs.com/docs/validation.html#validation) (session5/session5_07)
 
 
 
@@ -423,9 +562,19 @@ Authorization: LetMeIn
 
 
 
-<<<---------------------------------------------------------------------------->>>
+
+# In this session: we made changes in //controllers/blogs.controllers.js, //schemas/blog.schema.js, //requests.rest
 
 
-# NOTE: We have created "model", but have not utilized it yet, we will se in next session (session5/session5_02)
 
-# Also, we have several functions to perform CRUD operations,  we will se in next session (session5/session5_02)
+
+
+
+
+
+
+
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+
