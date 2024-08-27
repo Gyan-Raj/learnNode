@@ -19,477 +19,7 @@ Till now upto session4_03, we saw how express framework works and how easy it ma
 
   -as mongosh has flexible schema, we may face some errors while iterating over database for iterating the data and rendering it on UI. So, we came to know about mongoose which is an ODM, and learnt about how to connect our app to the DB  (session5/session5_01)
   -created a new POST method for posting new blog. BUT consoling the req.body gave us undefined as express does not parse the request by default. And we have to parse it explicitly if the content-type is application/json (The post method has header as content-type:application/json) (session5/session5_02)
-
-
-//index.js
-const express = require("express");
-const app = express();
-const PORT = 8082;
-const { errors } = require("celebrate");
-
-const userRouter = require("./routes/users.routes");
-const currencyRouter = require("./routes/currencies.routes");
-const blogRouter = require("./routes/blogs.routes");
-
-const connectDB = require("./db/config.js");
-connectDB();
-
-app.get("/", (req, res) => {
-  res
-    .header({ "content-type": "text/html" })
-    .send(`<h1>Currency Database</h1>`);
-});
-
-app.use("/currencies", currencyRouter);
-
-app.use("/users", userRouter);
-
-app.use("/blogs", blogRouter);
-
-app.use(errors());
-
-app.listen(PORT, () => {
-  console.log(`Server listening at port: ${PORT}`);
-});
-
-
-
-
-
-
-//routes/currencies.routes.js
-const express = require("express");
-const router = express.Router();
-const {
-  getCurrencies,
-  getCurrencyBySymbol,
-} = require("../controllers/currencies.controllers");
-
-const verifyAuth=require("../middlewares/verifyAuth")
-
-router.get("/", verifyAuth, getCurrencies);
-
-router.get("/:symbol", getCurrencyBySymbol);
-
-module.exports = router;
-
-
-
-
-
-//routes/users.routes.js
-const express = require("express");
-const {
-  getUsers,
-  getUserById,
-  searchUsers,
-} = require("../controllers/users.controllers");
-
-const router = express.Router();
-
-const verifyAuth = require("../middlewares/verifyAuth");
-
-router.use(verifyAuth);
-
-const userSearchValidator = require("../validations/userSearch.validation");
-const uuidValidator = require("../validations/uuid.validations");
-
-router.get("/", getUsers);
-router.get("/search", userSearchValidator, searchUsers);
-router.get("/:uuid", uuidValidator, getUserById);
-
-module.exports = router;
-
-
-
-
-
-//routes/blogs.routes.js
-const express = require("express");
-const router = express.Router();
-const {
-  getBlogs,
-  createNewBlog,
-  getBlogById,
-  updateBlogById,
-  deleteBlogById,
-} = require("../controllers/blogs.controllers");
-
-router.get("/", getBlogs);
-router.post("/new", createNewBlog);
-
-    // router.get("/:id", getBlogById);
-    // router.patch("/:id", updateBlogById);
-    // router.delete("/:id", deleteBlogById);
-    //As, getBlogById,updateBlogById, deleteBlogById have sane route paths ("/:id"), so we can use "clubbing" of these methods. "Clubbing" is provided by express Router, and can be utilized as:
-router.route("/:id").get(getBlogById).patch(updateBlogById).delete(deleteBlogById);
-
-module.exports = router;
-
-
-
-
-
-
-//db/config.js
-const mongoose = require("mongoose");
-
-const MONGODB_URI = "mongodb://127.0.0.1:27017";
-
-const connectDB = async () => {
-  try {
-    await mongoose.connect(MONGODB_URI);
-    console.log("DB connected");
-  } catch (error) {
-    console.log("Could not connect to DB", error);
-  }
-};
-
-module.exports = connectDB;
-
-
-
-
-
-//schemas/blog.schema.js
-const mongoose = require("mongoose");
-
-const blogSchema = new mongoose.Schema({
-  title: String, //Title is string
-  authors: [String], //Authors is an array of strings
-  content: String, //Content is string
-  publishedAt: Date, //publishedAt is Date //NOTE:Date is a special datatype that is offered by mongoDB (which uses BSON), it is not present in JSON
-});
-
-// This schema will also trigger an internal validator for data types when storing data to DB.
-
-module.exports = blogSchema;
-
-
-
-
-
-
-
-//models/blog.model.js
-
-const mongoose = require("mongoose");
-
-const blogSchema = require("../schemas/blog.schema");
-
-const blogModel = mongoose.model("Blogs", blogSchema, "blogs");
-//.model takes in 3 arguments: name of model ("Blogs"); schema it will follow (blogSchema); and name of collection which is optional (blogs)
-//it is general convention to keep the first letter of the name of model in Uppercase (i.e., "Blogs", and not "blogs"). NOTE: as this is optional, so when we do not give any collection name, it will by default add a "s" to model name => if model name is "Blog", the by default collection name will be "Blogs"
-
-module.exports = blogModel;
-
-
-
-
-
-
-//middlewares/validators.js
-
-const validator = (schema) => (req, res, next) => {
-  const { error } = schema.validate(req);
-  if (error) {
-    return res.status(422).send({ message: error.details[0].message });
-  } else {
-    next();
-  }
-};
-
-module.exports = validator;
-
-
-
-
-
-//middlewares/verifyAuth.js
-const verifyAuth = (req, res, next) => {
-  if (req.headers.authorization !== process.env.password) {
-    return res.sendStatus(403);
-  } else {
-    next();
-  }
-};
-
-module.exports = verifyAuth;
-
-
-
-
-
-//controllers/currencies.controllers.js
-
-const currenciesJSON = require("../currencies.json");
-require("dotenv").config();
-const getCurrencies = (req, res) => {
-  console.log(process.env.password, "pass");
-  console.log(req.headers.authorization, "auth");
-
-  const { min_value } = req.query;
-  if (min_value) {
-    res
-      .header({ "content-type": "application/json" })
-      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
-  } else {
-    res
-      .header({ "content-type": "application/json" })
-      .send(currenciesJSON.data);
-  }
-};
-const getCurrencyBySymbol = (req, res) => {
-  const { symbol } = req.params;
-  const reqCurr = currenciesJSON.data.find(
-    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
-  );
-  if (reqCurr) {
-    return res.header({ "content-type": "application/json" }).send(reqCurr);
-  } else {
-    return res.status(404).send({ message: "invalid symbol" });
-  }
-};
-
-module.exports = {
-  getCurrencies,
-  getCurrencyBySymbol,
-};
-
-
-
-
-
-
-
-//controllers/users.controllers.js
-
-const usersJSON = require("../users.json");
-
-const getQueryErrors = require("../validations/userSearch.validation");
-
-const getUsers = (req, res) => {
-  res.header({ "content-type": "application/json" }).send(usersJSON.data);
-};
-const getUserById = (req, res) => {
-  const { uuid } = req.params;
-  const reqUser = usersJSON.data.find((user) => user.login.uuid === uuid);
-  if (reqUser) {
-    return res.header({ "content-type": "application/json" }).send(reqUser);
-  } else {
-    return res
-      .status(404)
-      .send({ message: `User with uuid: ${uuid} can not be found` });
-  }
-};
-
-const searchUsers = (req, res) => {
-  let { gender, age } = req.query;
-
-  if (gender && age) {
-    return res
-      .header({ "content-type": "application/json" })
-      .send(
-        usersJSON.data.filter(
-          (user) => user.gender === gender && user.dob.age === age
-        )
-      ); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
-  } else if (gender) {
-    return res
-      .header({ "content-type": "application/json" })
-      .send(usersJSON.data.filter((user) => user.gender === gender));
-  } else {
-    return res
-      .header({ "content-type": "application/json" })
-      .send(usersJSON.data.filter((user) => user.dob.age === age)); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
-  }
-};
-
-module.exports = {
-  getUsers,
-  getUserById,
-  searchUsers,
-};
-
-
-
-
-//controllers/currencies.controllers.js
-const getBlogs = (req, res) => {};
-
-const createNewBlog = (req, res) => {
-  console.log(req.body);
-  res.send("ok");
-};
-
-const getBlogById = (req, res) => {};
-
-const deleteBlogById = (req, res) => {};
-
-const updateBlogById = (req, res) => {};
-
-module.exports = {
-  getBlogs,
-  createNewBlog,
-  getBlogById,
-  deleteBlogById,
-  updateBlogById,
-};
-
-
-
-
-
-
-//validations/userSearch.validation.js
-
-const { celebrate, Joi, errors, Segments } = require("celebrate");
-
-const validGenders = ["male", "female"];
-
-const userSearchValidator = celebrate({
-  [Segments.QUERY]: Joi.object({
-    gender: Joi.string().valid(...validGenders),
-    age: Joi.number().min(0).max(100),
-  }).or("gender", "age"),
-});
-
-module.exports = userSearchValidator;
-
-
-
-
-
-//validations/uuid.validations.js
-
-const { celebrate, Joi, errors, Segments } = require("celebrate");
-
-const uuidValidator = celebrate({
-  [Segments.PARAMS]: Joi.object({
-    uuid: Joi.string().guid({
-      version: ["uuidv4"],
-    }),
-  })
-});
-
-module.exports = uuidValidator;
-
-
-
-
-
-
-
-//.env
-
-password=LetMeIn
-
-
-
-//requests.rest
-
-GET http://localhost:8082
-###
-GET http://localhost:8082/currencies
-###
-GET http://localhost:8082/currencies
-Authorization: LetMeIn
-###
-GET http://localhost:8082/currencies?min_value=0.001
-###
-GET http://localhost:8082/currencies/inr
-###
-GET http://localhost:8082/users
-###
-GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
-Authorization: LetMeIn
-###
-GET http://localhost:8082/users/6607d086-7159-4c26-1-280c9f9cbf35     
-Authorization: LetMeIn
-###
-GET http://localhost:8082/users/search?gender=male
-Authorization: LetMeIn
-###
-GET http://localhost:8082/users/search?age=49
-Authorization: LetMeIn
-###
-GET http://localhost:8082/users/search?gender=male&age=49
-Authorization: LetMeIn
-###
-GET http://localhost:8082/users/search?age=49&gender=male
-Authorization: LetMeIn
-###
-GET http://localhost:8082/users/search
-Authorization: LetMeIn
-###
-GET http://localhost:8082/users/search?gender=xyz
-Authorization: LetMeIn
-###
-GET http://localhost:8082/users/search?age=-50
-Authorization: LetMeIn
-###
-GET http://localhost:8082/users/search?age=-50
-###
-GET http://localhost:8082/blogs/
-###
-POST http://localhost:8082/blogs/new
-Content-type:application/json
-{
-    "title": "First Blog",
-    "authors": "Gyan",
-    "content": "Blog on technology",
-    "publishedAt": null,
-}
-###
-PATCH http://localhost:8082/blogs/id=
-###
-DELETE http://localhost:8082/blogs/id=
-###
-
-
-
-
-
-
-<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
-<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
-<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
-
-
-
-
-# In last session, when we hit the request for POST of new blog, the req.body was coming as undefined as express server does not parse the body by default, and will therefore return undefined.
-# So, we will now use a middleware which is provided by express which is called as json(), which will parse the request if the Content-type is application/json
-  - write 
-      app.use(express.json()) in index.js at any line
-# this express.json() is available only after 4.16 version of express. => For earlier versions of express, we have to do it explicitly by using bodyParser package (npm i body-parser) -> const bodyParser=require("body-parser"); -> app.use(bodyParser.json())
-# ALSO, in last session, while sending the body with the request, we wrote something as:
-    POST http://localhost:8082/blogs/new
-    Content-type:application/json
-
-    {
-        "title": "First Blog",
-        "authors": "Gyan",
-        "content": "Blog on technology",
-        "publishedAt": null,                    //NOTE: this will give error when we will hit the request. As we don't have any more fields, so remove this request
-    }
-    ###
-
-  So, we should write it as:
-    POST http://localhost:8082/blogs/new
-    Content-type:application/json
-
-    {
-        "title": "First Blog",
-        "authors": "Gyan",
-        "content": "Blog on technology",
-        "publishedAt": null                     //Don't use comma at this line
-    }
-    ###
-
-# After doing all this, we can say that we are getting our request body. So, now we will write the functionalities for controllers in the next session
-  -The only change we did was in index.js and requests.rest files
-
+  -created a new POST method for posting new blog, and now we are not getting undefined in the console, rather we are getting the desired request body (session5/session5_03)
 
 
 
@@ -927,8 +457,6 @@ DELETE http://localhost:8082/blogs/id=
 
 
 
-
-
 <<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
 <<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
 <<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
@@ -936,4 +464,550 @@ DELETE http://localhost:8082/blogs/id=
 
 
 
-session
+# In last session, we were getting the request body when hitting for the POST request for creating a new blog. So, now we will be using that to add the new blog to our database
+# In the blogs.controllers.js file, we can update the "createNewBlog" controller as: 
+    const createNewBlog = (req, res) => {
+      const newBlog=Blog.create(req.body)         //create method is there in mongoDB, to create/add a document in the collection.
+                                                  //Blog is the model that we had created in earlier sessions (we will import that Model (const Blog=require("../models/blog.model")) and will then use it here)
+      res.send("ok");
+    };
+
+  But, the "create" method will return a promise => we should use "await" => the "createNewBlog" should be an async function => and we should also use try-catxh block for better handling of errors:
+    const createNewBlog = async (req, res) => {
+      try {
+        const newBlog = await Blog.create(req.body);
+        res.send(newBlog);
+      } catch (error) {
+        res.status(500).send({message:"Something went wrong!!!", error})
+      }
+    };
+
+
+  In much better way, it's a good practice to destructre the body
+    const createNewBlog = async (req, res) => {
+      const { title, authors, content, publishedAt } = req.body;
+      try {
+        const newBlog = await Blog.create({
+          title,
+          authors,
+          content,
+          publishedAt,
+        });
+        res.send(newBlog);
+      } catch (error) {
+        res.status(500).send({message:"Something went wrong!!!", error})
+      }
+    };
+
+  Now, when we send the POST request, we will be getting the following as response:
+    {
+      "title": "First Blog",
+      "authors": [
+        "Gyan"
+      ],
+      "content": "Blog on technology",
+      "publishedAt": null,
+      "_id": "66cd6ee57b7bb7a513371370",
+      "__v": 0
+    }
+  NOTE that we have not added "_id" and "__v", then who did it? => Ans: MongoDB
+
+    # "_id": is the object id created by MongoDB
+        Can we overwrite it? => i.e., What if we have a _id field in our schema itself, what will happen? => Ans: YES, we can have our custom "_id" field if the "_id" is valid object id, i.e., it should be in hexa-decimal system and should be 24 characters long
+        So, When we add _id to our schema (const blogSchema = new mongoose.Schema({ _id:String, title: String, authors: [String], content: String, publishedAt: Date,});); then in blogs.controllers.js: const createNewBlog = async (req, res) => { const { _id, title, authors, content, publishedAt } = req.body; try { const newBlog = await Blog.create({ _id, title, authors, content, publishedAt, }); res.send(newBlog); } catch (error) { res.status(500).send({message:"Something went wrong!!!", error}) }};; and when we pass an a valid _id (which should be of 24 characters and should be in hexa-decimal system (0-9, a-f)) in body (POST http://localhost:8082/blogs/new Content-type:application/json { "_id":"66cd7155e3z3103d92b764b5", "title": "Second Blog", "authors": "Gyan", "content": "Blog on technology", "publishedAt": null}) => We can successfully add the blog to the collection
+    # "__v": defines the version of the "document" => when we will update this document, it will increase as "__v":1, then "__v":2 then "__v":3 and so on
+  NOTE: if we don't want "__v", then we can disable it by writing {verionKey:false} in our schema, i.e., in schemas/blog.schema.js: const blogSchema = new mongoose.Schema({ title: String, authors: [String], content: String, publishedAt: Date,}, { versionKey: false });
+
+# Now we will change the database to "crio" to add a post
+  So, in db/config.js:
+    const MONGODB_URI = "mongodb://127.0.0.1:27017/"; => change it to: const MONGODB_URI = "mongodb://127.0.0.1:27017/crio";
+  This will create a database named "crio", if not already present
+
+# To verify whether the blog is added to the database or not:
+  - Run "mongosh" in the terminal
+  - By default, we will be connected to "test" database
+  - So, change it to crio : use crio
+  - Hit the POST request (from requests.rest file)
+  - use db.blogs.find() to see the collection present in the "crio" database. NOTE "blogs" is the name of collection, where it is coming from? => Ans: in models/blog.model.js file: const blogModel = mongoose.model("Blogs", blogSchema, "blogs");  => we had studied that the 3rd arguement is the name of the collection, and if 3rd arguemnet is not given (as it is optional), then mongoose will just add "s" to the Model name which is the 1st arguement (i.e., makes plural)
+
+# We will now clear the database by running: db.blogs.deleteMany({criteriaForDeleting}) //criteriaForDeleting means we have to pass something on basis of which the document will be deleteBlogById
+  So, as for every document, we have same "content" ("content": "Blog on technology",) we can delete on basis of this
+    So, run db.blogs.deleteMany({"content": "Blog on technology"}) or db.blogs.deleteMany({content: "Blog on technology"})
+  Also, as we have publishedAt:null, we can also delete on basis of it db.blogs.deleteMany({publishedAt: null})
+
+
+//index.js
+const express = require("express");
+const app = express();
+const PORT = 8082;
+const { errors } = require("celebrate");
+
+const userRouter = require("./routes/users.routes");
+const currencyRouter = require("./routes/currencies.routes");
+const blogRouter = require("./routes/blogs.routes");
+
+const connectDB = require("./db/config.js");
+connectDB();
+
+app.use(express.json());  //parses the request body as json if and only if Content-Type is application/json
+
+app.get("/", (req, res) => {
+  res
+    .header({ "content-type": "text/html" })
+    .send(`<h1>Currency Database</h1>`);
+});
+
+app.use("/currencies", currencyRouter);
+
+app.use("/users", userRouter);
+
+app.use("/blogs", blogRouter);
+
+app.use(errors());
+
+app.listen(PORT, () => {
+  console.log(`Server listening at port: ${PORT}`);
+});
+
+
+
+
+
+
+//routes/currencies.routes.js
+const express = require("express");
+const router = express.Router();
+const {
+  getCurrencies,
+  getCurrencyBySymbol,
+} = require("../controllers/currencies.controllers");
+
+const verifyAuth=require("../middlewares/verifyAuth")
+
+router.get("/", verifyAuth, getCurrencies);
+
+router.get("/:symbol", getCurrencyBySymbol);
+
+module.exports = router;
+
+
+
+
+
+//routes/users.routes.js
+const express = require("express");
+const {
+  getUsers,
+  getUserById,
+  searchUsers,
+} = require("../controllers/users.controllers");
+
+const router = express.Router();
+
+const verifyAuth = require("../middlewares/verifyAuth");
+
+router.use(verifyAuth);
+
+const userSearchValidator = require("../validations/userSearch.validation");
+const uuidValidator = require("../validations/uuid.validations");
+
+router.get("/", getUsers);
+router.get("/search", userSearchValidator, searchUsers);
+router.get("/:uuid", uuidValidator, getUserById);
+
+module.exports = router;
+
+
+
+
+
+//routes/blogs.routes.js
+const express = require("express");
+const router = express.Router();
+const {
+  getBlogs,
+  createNewBlog,
+  getBlogById,
+  updateBlogById,
+  deleteBlogById,
+} = require("../controllers/blogs.controllers");
+
+router.get("/", getBlogs);
+router.post("/new", createNewBlog);
+
+    // router.get("/:id", getBlogById);
+    // router.patch("/:id", updateBlogById);
+    // router.delete("/:id", deleteBlogById);
+    //As, getBlogById,updateBlogById, deleteBlogById have sane route paths ("/:id"), so we can use "clubbing" of these methods. "Clubbing" is provided by express Router, and can be utilized as:
+router.route("/:id").get(getBlogById).patch(updateBlogById).delete(deleteBlogById);
+
+module.exports = router;
+
+
+
+
+
+
+//db/config.js
+const mongoose = require("mongoose");
+
+const MONGODB_URI = "mongodb://127.0.0.1:27017/crio";
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI);
+    console.log("DB connected");
+  } catch (error) {
+    console.log("Could not connect to DB", error);
+  }
+};
+
+module.exports = connectDB;
+
+
+
+
+
+//schemas/blog.schema.js
+const mongoose = require("mongoose");
+
+const blogSchema = new mongoose.Schema({
+  title: String, //Title is string
+  authors: [String], //Authors is an array of strings
+  content: String, //Content is string
+  publishedAt: Date, //publishedAt is Date //NOTE:Date is a special datatype that is offered by mongoDB (which uses BSON), it is not present in JSON
+});
+
+// This schema will also trigger an internal validator for data types when storing data to DB.
+
+module.exports = blogSchema;
+
+
+
+
+
+
+
+//models/blog.model.js
+
+const mongoose = require("mongoose");
+
+const blogSchema = require("../schemas/blog.schema");
+
+const blogModel = mongoose.model("Blogs", blogSchema, "blogs");
+//.model takes in 3 arguments: name of model ("Blogs"); schema it will follow (blogSchema); and name of collection which is optional (blogs)
+//it is general convention to keep the first letter of the name of model in Uppercase (i.e., "Blogs", and not "blogs"). NOTE: as this is optional, so when we do not give any collection name, it will by default add a "s" to model name => if model name is "Blog", the by default collection name will be "Blogs"
+
+module.exports = blogModel;
+
+
+
+
+
+
+//middlewares/validators.js
+
+const validator = (schema) => (req, res, next) => {
+  const { error } = schema.validate(req);
+  if (error) {
+    return res.status(422).send({ message: error.details[0].message });
+  } else {
+    next();
+  }
+};
+
+module.exports = validator;
+
+
+
+
+
+//middlewares/verifyAuth.js
+const verifyAuth = (req, res, next) => {
+  if (req.headers.authorization !== process.env.password) {
+    return res.sendStatus(403);
+  } else {
+    next();
+  }
+};
+
+module.exports = verifyAuth;
+
+
+
+
+
+//controllers/currencies.controllers.js
+
+const currenciesJSON = require("../currencies.json");
+require("dotenv").config();
+const getCurrencies = (req, res) => {
+  console.log(process.env.password, "pass");
+  console.log(req.headers.authorization, "auth");
+
+  const { min_value } = req.query;
+  if (min_value) {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
+  } else {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data);
+  }
+};
+const getCurrencyBySymbol = (req, res) => {
+  const { symbol } = req.params;
+  const reqCurr = currenciesJSON.data.find(
+    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
+  );
+  if (reqCurr) {
+    return res.header({ "content-type": "application/json" }).send(reqCurr);
+  } else {
+    return res.status(404).send({ message: "invalid symbol" });
+  }
+};
+
+module.exports = {
+  getCurrencies,
+  getCurrencyBySymbol,
+};
+
+
+
+
+
+
+
+//controllers/users.controllers.js
+
+const usersJSON = require("../users.json");
+
+const getQueryErrors = require("../validations/userSearch.validation");
+
+const getUsers = (req, res) => {
+  res.header({ "content-type": "application/json" }).send(usersJSON.data);
+};
+const getUserById = (req, res) => {
+  const { uuid } = req.params;
+  const reqUser = usersJSON.data.find((user) => user.login.uuid === uuid);
+  if (reqUser) {
+    return res.header({ "content-type": "application/json" }).send(reqUser);
+  } else {
+    return res
+      .status(404)
+      .send({ message: `User with uuid: ${uuid} can not be found` });
+  }
+};
+
+const searchUsers = (req, res) => {
+  let { gender, age } = req.query;
+
+  if (gender && age) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(
+        usersJSON.data.filter(
+          (user) => user.gender === gender && user.dob.age === age
+        )
+      ); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
+  } else if (gender) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.gender === gender));
+  } else {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.dob.age === age)); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
+  }
+};
+
+module.exports = {
+  getUsers,
+  getUserById,
+  searchUsers,
+};
+
+
+
+
+//controllers/blogs.controllers.js
+const Blog = require("../models/blog.model");
+
+const getBlogs = (req, res) => {};
+
+const createNewBlog = async (req, res) => {
+  const { title, authors, content, publishedAt } = req.body;
+  try {
+    const newBlog = await Blog.create({
+      title,
+      authors,
+      content,
+      publishedAt,
+    });
+    res.send(newBlog);
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+const getBlogById = (req, res) => {};
+
+const deleteBlogById = (req, res) => {};
+
+const updateBlogById = (req, res) => {};
+
+module.exports = {
+  getBlogs,
+  createNewBlog,
+  getBlogById,
+  deleteBlogById,
+  updateBlogById,
+};
+
+
+
+
+
+
+
+//validations/userSearch.validation.js
+
+const { celebrate, Joi, errors, Segments } = require("celebrate");
+
+const validGenders = ["male", "female"];
+
+const userSearchValidator = celebrate({
+  [Segments.QUERY]: Joi.object({
+    gender: Joi.string().valid(...validGenders),
+    age: Joi.number().min(0).max(100),
+  }).or("gender", "age"),
+});
+
+module.exports = userSearchValidator;
+
+
+
+
+
+//validations/uuid.validations.js
+
+const { celebrate, Joi, errors, Segments } = require("celebrate");
+
+const uuidValidator = celebrate({
+  [Segments.PARAMS]: Joi.object({
+    uuid: Joi.string().guid({
+      version: ["uuidv4"],
+    }),
+  })
+});
+
+module.exports = uuidValidator;
+
+
+
+
+
+
+
+//.env
+
+password=LetMeIn
+
+
+
+//requests.rest
+
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies
+Authorization: LetMeIn
+###
+GET http://localhost:8082/currencies?min_value=0.001
+###
+GET http://localhost:8082/currencies/inr
+###
+GET http://localhost:8082/users
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-1-280c9f9cbf35     
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male&age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49&gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=xyz
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+###
+GET http://localhost:8082/blogs/
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+{
+    "title": "First Blog",
+    "authors": "Gyan",
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+PATCH http://localhost:8082/blogs/id=
+###
+DELETE http://localhost:8082/blogs/id=
+###
+
+
+
+
+
+
+
+
+
+
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+
+
+# We have one more method of creating blog: by using "new" keyword
+    const createNewBlog = async (req, res) => {
+      const { title, authors, content, publishedAt } = req.body;
+      try {
+        const newBlog = new Blog({
+          title,
+          authors,
+          content,
+          publishedAt,
+        });
+        await newBlog.save();
+        res.send(newBlog);
+      } catch (error) {
+        res.status(500).send({ message: "Something went wrong!!!", error });
+      }
+    };
+
+# Now in next session, we will be implementing the other controller functions (session5/session5_05)
+
+
+
