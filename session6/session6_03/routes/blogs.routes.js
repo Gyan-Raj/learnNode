@@ -7,10 +7,12 @@ const {
   getBlogById,
   updateBlogById,
   deleteBlogById,
+  searchBlogs,
 } = require("../controllers/blogs.controllers");
 const findAndAttachBlogToReq = require("../middlewares/findAndAttachBlogToReq");
 
 router.get("/", getBlogs);
+router.get("/search", searchBlogs);
 router.post("/new", createNewBlog);
 
 router.get("/:id", findAndAttachBlogToReq, getBlogById);

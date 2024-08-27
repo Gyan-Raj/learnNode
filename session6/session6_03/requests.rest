@@ -41,16 +41,14 @@ Authorization: LetMeIn
 GET http://localhost:8082/users/search?age=-50
 ###
 GET http://localhost:8082/blogs/
+###       
+GET http://localhost:8082/blogs/search?title=First%20Blog&author=gyan@yahoo.com
 ###
-POST http://localhost:8082/blogs/new
-Content-type:application/json
-
-{
-    "title": "First Blog",
-    "authors": "Gyan",
-    "content": "Blog on technology",
-    "publishedAt": null
-}
+GET http://localhost:8082/blogs/search?title=Second%20Blog
+###
+GET http://localhost:8082/blogs/search?author=gyan@yahoo.com
+###
+GET http://localhost:8082/blogs/search
 ###
 POST http://localhost:8082/blogs/new
 Content-type:application/json
@@ -63,40 +61,6 @@ Content-type:application/json
             "twitterHandle":"gyan@twitter.com",
             "email":"gyan@yahoo.com",
             "image":"https://img-cdn.dom/profile/gyan.jpeg"
-        }
-    ],
-    "content": "Blog on technology",
-    "publishedAt": null
-}
-###
-POST http://localhost:8082/blogs/new
-Content-type:application/json
-
-{
-    "title": "Second Blog",
-    "authors": [
-        {
-            "fullName":"Gyan",
-            "twitterHandle":"gyan@twitter.com",
-            "email":"gyan@gmail.com",
-            "image":"https://img-cdn.dom/profile/gyan.jpeg"
-        }
-    ],
-    "content": "Blog on technology",
-    "publishedAt": null
-}
-###
-POST http://localhost:8082/blogs/new
-Content-type:application/json
-
-{
-    "title": "Second Blog",
-    "authors": [
-        {
-            "fullName":"Gyan",
-            "twitterHandle":"gyan@twitter.com",
-            "email":"gyan@yahoo.com",
-            "image":"http://img-cdn.dom/profile/gyan.jpeg"
         }
     ],
     "content": "Blog on technology",

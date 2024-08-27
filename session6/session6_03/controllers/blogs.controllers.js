@@ -56,10 +56,40 @@ const deleteBlogById = async (req, res) => {
   }
 };
 
+const searchBlogs = async (req, res) => {
+  try {
+    const { title, author } = req.query;
+    if (title && author) {
+      return res.send(
+        await Blog.find({
+          $and: [
+            { title: title },
+            { authors: { $elemMatch: { email: author } } },
+          ],
+        })
+      ); //find() will return all the matched values (i.e., it does not return just the first match => find is similar to filter method);
+    }
+    if (title) {
+      return res.send(await Blog.find({ title: title })); //find() will return all the matched values (i.e., it does not return just the first match => find is similar to filter method)
+    }
+    if (author) {
+      return res.send(
+        await Blog.find({ authors: { $elemMatch: { email: author } } })
+      ); //find() will return all the matched values (i.e., it does not return just the first match => find is similar to filter method)
+    }
+    res
+      .status(422)
+      .send({ message: `Atleast one of "title" or "author" must be present` });
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
 module.exports = {
   getBlogs,
   createNewBlog,
   getBlogById,
   deleteBlogById,
   updateBlogById,
+  searchBlogs,
 };

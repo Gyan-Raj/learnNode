@@ -1,4 +1,4 @@
-Till now upto session6_01, we saw how express framework works and how easy it makes to route different paths including dynamic routing
+Till now upto session6_02, we saw how express framework works and how easy it makes to route different paths including dynamic routing
   -we used const http=require("http"):provided by node, and  used const server=http.createServer((req,res)=>{res.writeHead();res.write();res.end()})
   -we replaced require("http") by const express=require("express"):provided by express and used const app=express(), and then app.get("/urlPaths",(req,res)=>)
   -we used req.params for dynamic routing
@@ -25,6 +25,8 @@ Till now upto session6_01, we saw how express framework works and how easy it ma
   -improved the controller functions by adding middleware (findAndAttachBlogToReq.js) (session5/session5_06)
 
   -added nested schema  (session6/session6_01)
+  -used validator package (npm i validator) to validate email and url, also removed the _id field from authorSchema which is by default attached by mongoose for every schema created  (session6/session6_02)
+
 
 
 
@@ -166,13 +168,32 @@ module.exports = connectDB;
 //schemas/blog.schema.js
 
 const mongoose = require("mongoose");
+const validator = require("validator");
 
-const authorSchema = new mongoose.Schema({
-  fullName: { type: String, maxlength: 25 },
-  twitterHandle: { type: String },
-  email: { type: String, required: true, maxlength: 50 },
-  image: { type: String },
-});
+const authorSchema = new mongoose.Schema(
+  {
+    fullName: { type: String, maxlength: 25 },
+    twitterHandle: { type: String },
+    email: {
+      type: String,
+      required: true,
+      maxlength: 50,
+      validate: {
+        validator: (value) =>
+          validator.isEmail(value, { host_blacklist: ["gmail.com"] }), //gmail.com is blacklisted
+        message: (props) => `${props.value} is not a valid email address!`,
+      },
+    },
+    image: {
+      type: String,
+      validate: {
+        validator: (value) => validator.isURL(value, { protocols: ["https"] }), //only urls with https are allowed
+        message: (props) => `${props.value} is not a valid URL!`,
+      },
+    },
+  },
+  { _id: false }
+);
 
 const blogSchema = new mongoose.Schema(
   {
@@ -180,7 +201,7 @@ const blogSchema = new mongoose.Schema(
       type: String,
       cast: false,
       required: [true, `"title" is a required field`],
-      unique: true, //unique: true is not a validator. It's a convenient helper for building MongoDB unique indexes.
+      unique: true,
     },
     authors: [
       {
@@ -201,7 +222,6 @@ const blogSchema = new mongoose.Schema(
 );
 
 module.exports = blogSchema;
-
 
 
 
@@ -564,8 +584,741 @@ Content-type:application/json
         {
             "fullName":"Gyan",
             "twitterHandle":"gyan@twitter.com",
+            "email":"gyan@yahoo.com",
+            "image":"https://img-cdn.dom/profile/gyan.jpeg"
+        }
+    ],
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+
+{
+    "title": "Second Blog",
+    "authors": [
+        {
+            "fullName":"Gyan",
+            "twitterHandle":"gyan@twitter.com",
             "email":"gyan@gmail.com",
-            "image":"profile/gyan.jpeg"
+            "image":"https://img-cdn.dom/profile/gyan.jpeg"
+        }
+    ],
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+
+{
+    "title": "Second Blog",
+    "authors": [
+        {
+            "fullName":"Gyan",
+            "twitterHandle":"gyan@twitter.com",
+            "email":"gyan@yahoo.com",
+            "image":"http://img-cdn.dom/profile/gyan.jpeg"
+        }
+    ],
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+
+{
+    "title": "Second Blog",
+    "authors": [
+        {
+            "fullName":"Gyan",
+            "twitterHandle":"gyan@twitter.com",
+            "email":"gyan@yahoo.com",
+            "image":"https://img-cdn.dom/profile/gyan.jpeg"
+        }
+    ],
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+GET http://localhost:8082/blogs/66cdc996eda9501183b9417c
+###
+GET http://localhost:8082/blogs/66cdc996eda9501183b9417d
+###
+GET http://localhost:8082/blogs/123456
+###
+PATCH http://localhost:8082/blogs/66cdc996eda9501183b9417c
+Content-type:application/json
+
+{
+    "title": "First Blog updated"
+}
+###
+DELETE http://localhost:8082/blogs/66cda9b197ed2ef9c787d8ab
+###
+
+
+
+
+
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
+
+
+
+
+# We would often want to search the blogs based on the title or the author name.
+  - We can create a route for it like GET /blogs/search?title=BLOG_TITLE&author=AUTHOR_EMAIL
+
+    - Step 1 - We need to create a route and a controller for it
+    - Step 2 - Then we will extract the queries from the request
+    - Step 3 - We need to use the find() function on our Blogs model to find the documents that match the parameters we pass in the find() function
+    - Step 4 - We need to match the email, inside the array of author objects.
+        - For finding elements inside an array we use a special operator $elemMatch that matches the elements inside an array.
+            The $elemMatch operator matches documents that contain an array field with at least one element that matches all the specified query criteria.
+        - Also to search within a nested field, we would nest the query too!
+    - Step 5 - Currently we have to pass in both the parameters to search, but what we want to search by passing either of them (not both)
+        - So the search returns some results, if either title or author or both are passed.
+        - To match with OR conditions, we have an $or operator that has an array of conditions to match. 
+        - If either of them matches any document, the document is returned as the result.
+    - Step 6 - Bonus Step: What if we don’t want to match the exact string, but a part of it only. How to do that. (Hint: Use RegEx.)
+
+# Now, that we have our searchBlog controller ready, we need to have a request as:
+    GET http://localhost:8082/blogs/search?title=First Blog
+  BUT BUT BUT, we can't have white spaces in parameters
+  So, we need to encode our request:
+    - Open a tab
+    - go to developer tools
+    - write:
+        encodeURIComponent("First Blog")
+    - we will get:
+        'First%20Blog'
+    - use this to modify GET request as:
+        GET http://localhost:8082/blogs/search?title=First%20Blog
+
+
+# The few methods we saw in this session was:
+  - $elemMatch (https://www.mongodb.com/docs/manual/reference/operator/query/elemMatch/#mongodb-query-op.-elemMatch): The $elemMatch operator matches documents that contain an array field with at least one element that matches all the specified query criteria.
+      { <field>: { $elemMatch: { <query1>, <query2>, ... } } }
+  - find() (https://mongoosejs.com/docs/api/model.html#Model.find()): Filters the collection and returns all the documents matching the condition
+  - $and (https://www.mongodb.com/docs/manual/reference/operator/query/and/#mongodb-query-op.-and): performs a logical AND operation on an array of one or more expressions (<expression1>, <expression2>, and so on) and selects the documents that satisfy all the expressions.
+      { $and: [ { <expression1> }, { <expression2> } , ... , { <expressionN> } ] }
+
+
+# In this session: we made changes in  //routes/blogs.routes.js, //controllers/blogs.controllers.js, //requests.rest
+
+
+
+
+
+//index.js
+const express = require("express");
+const app = express();
+const PORT = 8082;
+const { errors } = require("celebrate");
+
+const userRouter = require("./routes/users.routes");
+const currencyRouter = require("./routes/currencies.routes");
+const blogRouter = require("./routes/blogs.routes");
+
+const connectDB = require("./db/config.js");
+connectDB();
+
+app.use(express.json());  //parses the request body as json if and only if Content-Type is application/json
+
+app.get("/", (req, res) => {
+  res
+    .header({ "content-type": "text/html" })
+    .send(`<h1>Currency Database</h1>`);
+});
+
+app.use("/currencies", currencyRouter);
+
+app.use("/users", userRouter);
+
+app.use("/blogs", blogRouter);
+
+app.use(errors());
+
+app.listen(PORT, () => {
+  console.log(`Server listening at port: ${PORT}`);
+});
+
+
+
+
+
+
+//routes/currencies.routes.js
+const express = require("express");
+const router = express.Router();
+const {
+  getCurrencies,
+  getCurrencyBySymbol,
+} = require("../controllers/currencies.controllers");
+
+const verifyAuth=require("../middlewares/verifyAuth")
+
+router.get("/", verifyAuth, getCurrencies);
+
+router.get("/:symbol", getCurrencyBySymbol);
+
+module.exports = router;
+
+
+
+
+
+//routes/users.routes.js
+const express = require("express");
+const {
+  getUsers,
+  getUserById,
+  searchUsers,
+} = require("../controllers/users.controllers");
+
+const router = express.Router();
+
+const verifyAuth = require("../middlewares/verifyAuth");
+
+router.use(verifyAuth);
+
+const userSearchValidator = require("../validations/userSearch.validation");
+const uuidValidator = require("../validations/uuid.validations");
+
+router.get("/", getUsers);
+router.get("/search", userSearchValidator, searchUsers);
+router.get("/:uuid", uuidValidator, getUserById);
+
+module.exports = router;
+
+
+
+
+
+//routes/blogs.routes.js
+
+const express = require("express");
+const router = express.Router();
+
+const {
+  getBlogs,
+  createNewBlog,
+  getBlogById,
+  updateBlogById,
+  deleteBlogById,
+  searchBlogs,
+} = require("../controllers/blogs.controllers");
+const findAndAttachBlogToReq = require("../middlewares/findAndAttachBlogToReq");
+
+router.get("/", getBlogs);
+router.get("/search", searchBlogs);
+router.post("/new", createNewBlog);
+
+router.get("/:id", findAndAttachBlogToReq, getBlogById);
+router.patch("/:id", findAndAttachBlogToReq, updateBlogById);
+router.delete("/:id", findAndAttachBlogToReq, deleteBlogById);
+
+module.exports = router;
+
+
+
+
+
+
+
+
+
+//db/config.js
+const mongoose = require("mongoose");
+
+const MONGODB_URI = "mongodb://127.0.0.1:27017/crio";
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI);
+    console.log("DB connected");
+  } catch (error) {
+    console.log("Could not connect to DB", error);
+  }
+};
+
+module.exports = connectDB;
+
+
+
+
+
+//schemas/blog.schema.js
+
+const mongoose = require("mongoose");
+const validator = require("validator");
+
+const authorSchema = new mongoose.Schema(
+  {
+    fullName: { type: String, maxlength: 25 },
+    twitterHandle: { type: String },
+    email: {
+      type: String,
+      required: true,
+      maxlength: 50,
+      validate: {
+        validator: (value) =>
+          validator.isEmail(value, { host_blacklist: ["gmail.com"] }), //gmail.com is blacklisted
+        message: (props) => `${props.value} is not a valid email address!`,
+      },
+    },
+    image: {
+      type: String,
+      validate: {
+        validator: (value) => validator.isURL(value, { protocols: ["https"] }), //only urls with https are allowed
+        message: (props) => `${props.value} is not a valid URL!`,
+      },
+    },
+  },
+  { _id: false }
+);
+
+const blogSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      cast: false,
+      required: [true, `"title" is a required field`],
+      unique: true,
+    },
+    authors: [
+      {
+        type: authorSchema,
+        cast: false,
+      },
+    ],
+    content: {
+      type: String,
+      default: "",
+    },
+    publishedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  { timestamps: true }
+);
+
+module.exports = blogSchema;
+
+
+
+
+
+
+
+//models/blog.model.js
+
+const mongoose = require("mongoose");
+
+const blogSchema = require("../schemas/blog.schema");
+
+const blogModel = mongoose.model("Blogs", blogSchema, "blogs");
+//.model takes in 3 arguments: name of model ("Blogs"); schema it will follow (blogSchema); and name of collection which is optional (blogs)
+//it is general convention to keep the first letter of the name of model in Uppercase (i.e., "Blogs", and not "blogs"). NOTE: as this is optional, so when we do not give any collection name, it will by default add a "s" to model name => if model name is "Blog", the by default collection name will be "Blogs"
+
+module.exports = blogModel;
+
+
+
+
+
+
+//middlewares/validators.js
+
+const validator = (schema) => (req, res, next) => {
+  const { error } = schema.validate(req);
+  if (error) {
+    return res.status(422).send({ message: error.details[0].message });
+  } else {
+    next();
+  }
+};
+
+module.exports = validator;
+
+
+
+
+
+//middlewares/verifyAuth.js
+
+const verifyAuth = (req, res, next) => {
+  if (req.headers.authorization !== process.env.password) {
+    return res.sendStatus(403);
+  } else {
+    next();
+  }
+};
+
+module.exports = verifyAuth;
+
+
+
+//middlewares/findAndAttachBlogToReq.js
+
+const Blog = require("../models/blog.model");
+
+const findAndAttachBlogToReq = async (req, res, next) => {
+  try {
+    const reqBlog = await Blog.findById(req.params.id);
+    if (reqBlog) {
+      req.reqBlog = reqBlog; //if we have a blog with the id, we are attaching a key called "reqBlog " to the req with value nothing but the blog with that id (reqBlog)
+      return next();
+    } else {
+      res.status(404).send({ message: "Could not find a blog with this id" });
+    }
+  } catch (error) {
+    if (error.name === "CastError" && error.kind === "ObjectId") {
+      return res.status(422).send({ message: "Invalid blog id" });
+    } else {
+      res.status(500).send({ message: "Something went wrong!!!", error });
+    }
+  }
+};
+
+module.exports = findAndAttachBlogToReq;
+
+
+
+
+
+
+//controllers/currencies.controllers.js
+
+const currenciesJSON = require("../currencies.json");
+require("dotenv").config();
+const getCurrencies = (req, res) => {
+  console.log(process.env.password, "pass");
+  console.log(req.headers.authorization, "auth");
+
+  const { min_value } = req.query;
+  if (min_value) {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data.filter((curr) => curr.min_size === min_value));
+  } else {
+    res
+      .header({ "content-type": "application/json" })
+      .send(currenciesJSON.data);
+  }
+};
+const getCurrencyBySymbol = (req, res) => {
+  const { symbol } = req.params;
+  const reqCurr = currenciesJSON.data.find(
+    (curr) => curr.id.toLowerCase() === symbol.toLowerCase()
+  );
+  if (reqCurr) {
+    return res.header({ "content-type": "application/json" }).send(reqCurr);
+  } else {
+    return res.status(404).send({ message: "invalid symbol" });
+  }
+};
+
+module.exports = {
+  getCurrencies,
+  getCurrencyBySymbol,
+};
+
+
+
+
+
+
+
+//controllers/users.controllers.js
+
+const usersJSON = require("../users.json");
+
+const getQueryErrors = require("../validations/userSearch.validation");
+
+const getUsers = (req, res) => {
+  res.header({ "content-type": "application/json" }).send(usersJSON.data);
+};
+const getUserById = (req, res) => {
+  const { uuid } = req.params;
+  const reqUser = usersJSON.data.find((user) => user.login.uuid === uuid);
+  if (reqUser) {
+    return res.header({ "content-type": "application/json" }).send(reqUser);
+  } else {
+    return res
+      .status(404)
+      .send({ message: `User with uuid: ${uuid} can not be found` });
+  }
+};
+
+const searchUsers = (req, res) => {
+  let { gender, age } = req.query;
+
+  if (gender && age) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(
+        usersJSON.data.filter(
+          (user) => user.gender === gender && user.dob.age === age
+        )
+      ); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
+  } else if (gender) {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.gender === gender));
+  } else {
+    return res
+      .header({ "content-type": "application/json" })
+      .send(usersJSON.data.filter((user) => user.dob.age === age)); //String(user.dob.age) is not required as Joi has already taken care of age to be a number
+  }
+};
+
+module.exports = {
+  getUsers,
+  getUserById,
+  searchUsers,
+};
+
+
+
+
+//controllers/blogs.controllers.js
+
+const Blog = require("../models/blog.model");
+
+const getBlogs = async (req, res) => {
+  try {
+    res.send(await Blog.find({}));
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+const createNewBlog = async (req, res) => {
+  const { title, authors, content, publishedAt } = req.body;
+  try {
+    const newBlog = new Blog({
+      title,
+      authors,
+      content,
+      publishedAt,
+    });
+    await newBlog.save();
+    res.status(201).send(newBlog);
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      // Validation error
+      return res.status(400).send({ message: error.message });
+    } else if (error.code === 11000) {
+      // Duplicate key error
+      return res.status(400).send({ message: "Title must be unique." });
+    } else {
+      res.status(500).send({ message: "Something went wrong!!!", error });
+    }
+  }
+};
+
+const getBlogById = (req, res) => {
+  return res.send(req.reqBlog);
+};
+
+const updateBlogById = async (req, res) => {
+  try {
+    const updatedBlog = await Blog.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
+    res.send(updatedBlog);
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+const deleteBlogById = async (req, res) => {
+  try {
+    await Blog.findByIdAndDelete(req.params.id);
+    res.sendStatus(204);
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+const searchBlogs = async (req, res) => {
+  try {
+    const { title, author } = req.query;
+    if (title && author) {
+      return res.send(
+        await Blog.find({
+          $and: [
+            { title: title },
+            { authors: { $elemMatch: { email: author } } },
+          ],
+        })
+      ); //find() will return all the matched values (i.e., it does not return just the first match => find is similar to filter method);
+    }
+    if (title) {
+      return res.send(await Blog.find({ title: title })); //find() will return all the matched values (i.e., it does not return just the first match => find is similar to filter method)
+    }
+    if (author) {
+      return res.send(
+        await Blog.find({ authors: { $elemMatch: { email: author } } })
+      ); //find() will return all the matched values (i.e., it does not return just the first match => find is similar to filter method)
+    }
+    res
+      .status(422)
+      .send({ message: `Atleast one of "title" or "author" must be present` });
+  } catch (error) {
+    res.status(500).send({ message: "Something went wrong!!!", error });
+  }
+};
+
+module.exports = {
+  getBlogs,
+  createNewBlog,
+  getBlogById,
+  deleteBlogById,
+  updateBlogById,
+  searchBlogs,
+};
+
+
+
+
+
+
+
+
+//validations/userSearch.validation.js
+
+const { celebrate, Joi, errors, Segments } = require("celebrate");
+
+const validGenders = ["male", "female"];
+
+const userSearchValidator = celebrate({
+  [Segments.QUERY]: Joi.object({
+    gender: Joi.string().valid(...validGenders),
+    age: Joi.number().min(0).max(100),
+  }).or("gender", "age"),
+});
+
+module.exports = userSearchValidator;
+
+
+
+
+
+//validations/uuid.validations.js
+
+const { celebrate, Joi, errors, Segments } = require("celebrate");
+
+const uuidValidator = celebrate({
+  [Segments.PARAMS]: Joi.object({
+    uuid: Joi.string().guid({
+      version: ["uuidv4"],
+    }),
+  })
+});
+
+module.exports = uuidValidator;
+
+
+
+
+
+
+
+//.env
+
+password=LetMeIn
+
+
+
+//requests.rest
+
+GET http://localhost:8082
+###
+GET http://localhost:8082/currencies
+###
+GET http://localhost:8082/currencies
+Authorization: LetMeIn
+###
+GET http://localhost:8082/currencies?min_value=0.001
+###
+GET http://localhost:8082/currencies/inr
+###
+GET http://localhost:8082/users
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-beb1-280c9f9cbf35
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/6607d086-7159-4c26-1-280c9f9cbf35     
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=male&age=49
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=49&gender=male
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?gender=xyz
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+Authorization: LetMeIn
+###
+GET http://localhost:8082/users/search?age=-50
+###
+GET http://localhost:8082/blogs/
+###       
+GET http://localhost:8082/blogs/search?title=First%20Blog&author=gyan@yahoo.com
+###
+GET http://localhost:8082/blogs/search?title=Second%20Blog
+###
+GET http://localhost:8082/blogs/search?author=gyan@yahoo.com
+###
+GET http://localhost:8082/blogs/search
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+
+{
+    "title": "First Blog",
+    "authors": [
+        {
+            "fullName":"Gyan",
+            "twitterHandle":"gyan@twitter.com",
+            "email":"gyan@yahoo.com",
+            "image":"https://img-cdn.dom/profile/gyan.jpeg"
+        }
+    ],
+    "content": "Blog on technology",
+    "publishedAt": null
+}
+###
+POST http://localhost:8082/blogs/new
+Content-type:application/json
+
+{
+    "title": "Second Blog",
+    "authors": [
+        {
+            "fullName":"Gyan",
+            "twitterHandle":"gyan@twitter.com",
+            "email":"gyan@yahoo.com",
+            "image":"https://img-cdn.dom/profile/gyan.jpeg"
         }
     ],
     "content": "Blog on technology",
@@ -593,46 +1346,14 @@ DELETE http://localhost:8082/blogs/66cda9b197ed2ef9c787d8ab
 
 
 
-
-
-
 <<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
 <<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
 <<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
 
-# There were three issues in last session (session6/session6_01)
-    -We were getting an unnecessary _id field along with the author
-    -We can literally pass in invalid emails for the email key, as long it is a string under 50 characters, and not been defined in the database earlier.
-    -We can literally pass in invalid urls for the image key.
+We have successfully implemented the searchBlogs controller
+BUT BUT BUT, the problem is:
+  -We are giving the output only when the author or title completely matches with author's email and title respectively. This should not be the case. Instead we should find() through the database based on some regular expression, so that when searching for author or title we need not pass same to same value
+  -Also, what if user enters same characters but in uppercase or lowercase or in any case pattern. So, the search implementation should be case insensitive
 
-# To remove the _id, we can just pass the option as: {_id:false}, i.e.:
-    const authorSchema = new mongoose.Schema(
-      {
-        fullName: { type: String, maxlength: 25 },
-        twitterHandle: { type: String },
-        email: { type: String, required: true, maxlength: 50 },
-        image: { type: String },
-      },
-      { _id: false }
-    );
+# We will be seeing these in next session (session6/session6_04)
 
-# Mongoose is not a validation library, so it can not validate emails or urls or any other fields by its own => So, we can validate using the package "validator", which is a library of string validators and sanitizers.
-    npm i validator
-
-# Mongoose has few built-in validators (https://mongoosejs.com/docs/validation.html#built-in-validators) of which we had already studied a few. Now to add a custom validator (https://mongoosejs.com/docs/validation.html#custom-validators)
-    So, to use a custom validation, mongoose has a key called "validate", which is an object which again have a key called "validator" which is a function and has another key called "message" where we can write our custom message in the validation fails
-
-NOTE: for emails, urls and other fields' validation, we could have also used "joi". But we will be using validator package for now 
-
-
-# In this session: we made changes in  //schemas/blog.schema.js, //requests.rest
-
-
-
-
-
-
-
-<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
-<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
-<<<-------------------------------------------------------------------------------------------------------------------------------------------------------->>>
