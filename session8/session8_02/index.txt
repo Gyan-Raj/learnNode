@@ -1,0 +1,85 @@
+# In this session, we will be studying:
+    - Creating a signup route
+    - Hashing Passwords
+    - Creating Login Routes
+    - Verifying Hashed Passwords
+
+# So, for that let us clone a repository: => NOTE: This is a frontend repo and not a starter code for backend
+    git clone https://gitlab.crio.do/public_content/node-sprint-sessions/disfo-frontend.git
+  Install the dependencies: npm install -> then run the server: npm start
+
+# Now, we will clone the repository for backend:
+    git clone https://gitlab.crio.do/public_content/node-sprint-sessions/disfo
+  Open the disfo folder.
+  Install the dependencies: npm install -> then run the dev server: npm run dev
+  Now we have the Disfo - Discussion Forum server ready and running with all the required endpoints and the modules already implemented.
+    Users
+    Discussions
+    Comments
+
+# We’ll be implementing signup and login for it!
+    # Signup a new user
+        The first step is to create a setup for registering a new user with an email, username, and password.
+            In earlier sessions, we have already created a POST /user/register route, but we have not used any password authentication to save a user.
+        Our frontend support a request to POST /auth/signup where we can send a body along with the request.
+            {
+            email: string,
+            username: string,
+            password: string
+            }
+        Now our backend needs to receive this request, process it, and create a new user in the database.
+
+        # Checkpoint 1: Receiving a request
+            - To receive the request create one route POST /auth/signup that can take in the request body.
+            - And also a controller postSignup to handle the request.
+            - This controller shall use the AuthService method signup that takes in the req.body as the user details and performs necessary actions.
+            - If any error occurs the controller shall send the error back to the client.
+            - The controller should use AuthService methods to perform any actions.
+            - So inside services/auth.service.js we will create an AuthService class.
+            - This class will have a signup method
+                - This method takes in a user object
+                - For now just log the user details
+                - Throw and error to handle it.
+
+        # Checkpoint 2: Validating the request
+            - Update user validation schema and model
+                - Now we need to store the user passwords along with their fullName, email, and username in our db.
+                - Update the userValidationSchema in validators/user.validator.js to support password field.
+                    - Specs - required and string.
+                - Update the userSchema inside the models/user.model.js to support the password field.
+                    - Specs - required and string.
+            - Apply Validations
+                - If you have a look at our user.routes.js where we were validating the request body for /user/register, you’ll see that we have a middleware function validateSchema that takes in a Joi validation schema such as userValidationSchema and returns a middleware function
+                - So now our validateUser function is basically a middleware to validate the request body against userValidationSchema
+                - We’ll use the same strategy for our /auth/signup route.
+        # Checkpoint 3: Processing the request And creating a new user
+            - Final step in this process to register a user is to save their info inside the database.
+            - We already have the UserService to create a new user. We’ll use the same inside our signup method
+        # Checkpoint 4: Testing the request in Postman
+            -Request Body:
+                {
+                    "fullName": "Gyan Raj"
+                    "email": "bhardwaj7739@gmail.com",
+                    "username": "gyanraj",
+                    "password": "gyanraj@123"
+                }
+
+
+# created //controllers/auth.controller.js  //routes/auth.routes.js //services/auth.service.js  and updated //models/user.model.js  //validations/user.validation.js
+
+
+
+<<<----------------------------------------------------------------------------------------------------------------------------->>>
+<<<----------------------------------------------------------------------------------------------------------------------------->>>
+<<<----------------------------------------------------------------------------------------------------------------------------->>>
+
+
+
+
+
+
+Can you identify a major security threat here?? -> Our password is out in the open! So, the database administrators or backend engineers or anyone with database access can see it.
+=> Passwords (or other sensitive information, like credit card numbers etc) are never saved directly without hashing.
+
+So, we need to hash the passwords  (session8/session8_02)
+
