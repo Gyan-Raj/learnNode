@@ -1382,5 +1382,11 @@ DELETE http://localhost:8082/blogs/66cda9b197ed2ef9c787d8ab
 
 
 
+Moving on, we have nothing as such to be discussed for session7.
+So, we will jump to session 8, where we will be studying about:
+  Creating a signup route
+  Hashing Passwords
+  Creating Login Routes
+  Verifying Hashed Passwords
 
 
