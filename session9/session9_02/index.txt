@@ -1,0 +1,399 @@
+
+################################################################################################################################
+##############################################        session8/session8_01        ##############################################
+################################################################################################################################
+# In this session, we will be studying:
+    - Creating a signup route
+    - Hashing Passwords
+    - Creating Login Routes
+    - Verifying Hashed Passwords
+
+# So, for that let us clone a repository: => NOTE: This is a frontend repo and not a starter code for backend
+    git clone https://gitlab.crio.do/public_content/node-sprint-sessions/disfo-frontend.git
+  Install the dependencies: npm install -> then run the server: npm start   -> BUT, this will give the error, so from package.json file delete PORT=8081 written in "start" under "script" ("scripts": {    "start": "react-scripts start",    "build": "react-scripts build",    "test": "react-scripts test",    "eject": "react-scripts eject"  }) it will start at port 3000 and not at 8081-> to start at 8081, create a .env file and write PORT=8081 
+
+
+# Now, we will clone the repository for backend:
+    git clone https://gitlab.crio.do/public_content/node-sprint-sessions/disfo
+  Open the disfo folder.
+  Install the dependencies: npm install -> then run the dev server: npm run dev
+  Now we have the Disfo - Discussion Forum server ready and running with all the required endpoints and the modules already implemented.
+    Users
+    Discussions
+    Comments
+
+# We’ll be implementing signup and login for it!
+    # Signup a new user
+        The first step is to create a setup for registering a new user with an email, username, and password.
+            In earlier sessions, we have already created a POST /user/register route, but we have not used any password authentication to save a user.
+        Our frontend support a request to POST /auth/signup where we can send a body along with the request.
+            {
+            email: string,
+            username: string,
+            password: string
+            }
+        Now our backend needs to receive this request, process it, and create a new user in the database.
+
+        # Checkpoint 1: Receiving a request
+            - To receive the request create one route POST /auth/signup that can take in the request body.
+            - And also a controller postSignup to handle the request.
+            - This controller shall use the AuthService method signup that takes in the req.body as the user details and performs necessary actions.
+            - If any error occurs the controller shall send the error back to the client.
+            - The controller should use AuthService methods to perform any actions.
+            - So inside services/auth.service.js we will create an AuthService class.
+            - This class will have a signup method
+                - This method takes in a user object
+                - For now just log the user details
+                - Throw and error to handle it.
+
+        # Checkpoint 2: Validating the request
+            - Update user validation schema and model
+                - Now we need to store the user passwords along with their fullName, email, and username in our db.
+                - Update the userValidationSchema in validators/user.validator.js to support password field.
+                    - Specs - required and string.
+                - Update the userSchema inside the models/user.model.js to support the password field.
+                    - Specs - required and string.
+            - Apply Validations
+                - If you have a look at our user.routes.js where we were validating the request body for /user/register, you’ll see that we have a middleware function validateSchema that takes in a Joi validation schema such as userValidationSchema and returns a middleware function
+                - So now our validateUser function is basically a middleware to validate the request body against userValidationSchema
+                - We’ll use the same strategy for our /auth/signup route.
+        # Checkpoint 3: Processing the request And creating a new user
+            - Final step in this process to register a user is to save their info inside the database.
+            - We already have the UserService to create a new user. We’ll use the same inside our signup method
+        # Checkpoint 4: Testing the request in Postman
+            -Request Body:
+                {
+                    "fullName": "Gyan Raj"
+                    "email": "bhardwaj7739@gmail.com",
+                    "username": "gyanraj",
+                    "password": "gyanraj@123"
+                }
+
+
+# created //controllers/auth.controller.js  //routes/auth.routes.js //services/auth.service.js  and updated //models/user.model.js  //validations/user.validator.js
+
+
+
+################################################################################################################################
+##############################################        session8/session8_02        ##############################################
+################################################################################################################################
+
+
+
+
+
+
+Can you identify a major security threat here?? -> Our password is out in the open! So, the database administrators or backend engineers or anyone with database access can see it.
+=> Passwords (or other sensitive information, like credit card numbers etc) are never saved directly without hashing.
+
+There are two parts to hashing a password:
+    1. We pass our password string through a Hashing Algorithm.
+    2. To make our hashed password even more unbreakable, we add a “salt” to it.
+
+Finally we store this salt-hashed password in the database. This way it stays secure.
+Next time when a user tries to log in, we simply take the password user has entered 
+    → attach the salt 
+    → hash it again 
+    → and then compare it with the password in our DB.
+If they match, then the user can log in.
+
+
+# Hashing Passwords in NodeJs
+    We shall use a library called as bcrypt that gives us utilities to salt, hash, and verify strings: npm i bcrypt -> hash(data,saltOrRounds) method of bcrypt returns a promise to be either resolved with the encrypted data salt or rejected with an Error 
+        data — The data to be encrypted.
+        saltOrRounds - The salt to be used in encryption. If specified as a number then a salt will be generated with the specified number of rounds and used.
+
+    There are other libraries out there to hash passwords with stronger algorithms, but for simplicity we’ll use bcrypt.
+
+We will add another method inside AuthService named encryptPassword
+bcrypt gives us a promise function to generate a salt named genSalt
+We shall use this salt for hash the password with bcrypt hash method.
+
+We will update our signup method to store hashed password instead of plain passwords.
+
+
+# So, as hashing a password is a business logic, so it should be in service layer and not in controller layer
+
+# updated //services/auth.service.js //controllers/auth.controller.js
+
+
+################################################################################################################################
+##############################################        session8/session8_03        ##############################################
+################################################################################################################################
+
+
+# NOTE that, in //services/user.service.js, we already have a register function as:
+    register = async (user) => {
+        try {
+        const { fullName, email, username } = user;
+        const newUser = new Users({ email, username, fullName });
+        const result = await newUser.save();
+        return result;
+        } catch (error) {
+        throw error;
+        }
+    };
+And in //services/auth.service.js, we again are having a sigup function as:
+    signup = async ({ fullName, username, email, password }) => {
+        const newUser = new User({
+        fullName,
+        username,
+        email,
+        password: await this.generateHashPassword(password),
+        });
+        await newUser.save();
+        return newUser;
+    };
+
+So, instead of having two separate functions, we can use register function of //services/user.service.js, in signup function of //services/auth.service.js
+
+# updated //services/auth.service.js and //services/user.service.js
+
+################################################################################################################################
+##############################################        session8/session8_04        ##############################################
+################################################################################################################################
+
+
+Once we have created a user, we need to authenticate them: Let’s build a login flow
+
+# - Create a route POST /auth/login for login as well   => //routes/auth.routes.js
+        const {  postLogin } = require("../controllers/auth.controller");
+        const validateLogin = validateSchema(loginValidationSchema);
+        router.post("/login", validateLogin, postLogin);
+  - Create a validator  with username and password fields  => //validations/login.validator.js
+        const Joi = require("joi");
+        const loginValidationSchema = Joi.object().keys({
+        username: Joi.string().required().max(25),
+        password: Joi.string().required(),
+        });
+        module.exports = { loginValidationSchema };
+  - Add a controller postLogin():                       => //controllers/auth.controller.js
+        - The controller shall use AuthService.login() that will return an object with a boolean value for isLoggedIn.
+            const postLogin = async (req, res) => {
+            try {
+                const { isLoggedIn, userId } = await AuthServiceInstance.login(req.body);
+                if (isLoggedIn) {
+                res.send({isLoggedIn, userId});
+                } else {
+                res
+                    .status(401)
+                    .send({ message: "Either username or password in incorect" });
+                }
+            } catch (error) {
+                res.status(500).send({ message: "Oops!!! SOmething went wrong." }, error);
+            }
+            };
+            module.exports = {  postLogin };
+  - Create a method inside AuthService to handle the login process  => //services/auth.service.js
+        - So, in "login" method, we will first go through the database to check whether the database has the username (that is coming with req.body) or not
+            - To check this, we already have a method called findByUsername in user.service, so we will be using that for "login" method in auth.service.js
+        - After we get the username, we need to match the password that is coming with req.body with the password that is present in database (NOTE that the password that is present in database in no longer a plain text but is a hashed password)
+            - To compare the password with the hashed password, we have a method in bcryct, called as "compare" method which takes in two parameters : plain text and the hashed text
+                login = async ({ username, password }) => {
+                    const reqUser = await UserServiceInstance.findByUsername(username);
+                    return {
+                    isLoggedIn: await this.verifyPassword(password, reqUser.password),
+                    userId: reqUser._id
+                    };
+                };
+                verifyPassword = (plainTextPassword, hashedPassword) =>
+                    bcrypt.compare(plainTextPassword, hashedPassword);
+
+
+#created //validations/login.validator.js, updated //routes/auth.routes.js, //controllers/auth.controller.js, //services/auth.service.js and //requests.rest
+
+
+
+
+
+################################################################################################################################
+##############################################        session9/session9_01        ##############################################
+################################################################################################################################
+
+
+
+# We have successfully logged in the user, however we need to maintain this state of login for the user so that they can continue enjoying the authenticated access
+    - So, to maintain the state of logged in, we can store the userId and a "token" on a server, and everytime user makes a request, we can check for the token in order to maintain the state
+  BUT BUT BUT, what if the server goes down?!!!
+
+# SO, it is not advisable to rely on the server, instead we should have a logic which can maintain the state  => Here comes the JWT (JSON Web Tokens) concept
+
+# The token will be genearated by the server, but the server will not store the cookie, instead it will store it as cookie.
+  So, everytime user makes a new request (say, like a post or download a song, or comment on a blog), the cookie will be sent alongwith the request. => The server will use this cookie and will identify the user and if the user is authenticated, the response will be generated
+  => NOTE that the server is not storing the token, but is still able to verify the token => This is the beauty of JWT   
+
+# A token is generated on the server that contains several information about the user as well as the metadata about the token itself.
+
+# - JSON Web Tokens (JWT) (https://jwt.io/) are the most commonly used method of creating tokens for web applications.
+  - A JWT contains encoded information about the user that helps to identify them in our database.
+  - A JWT is made of three different parts
+        - Header:
+            Object that contains the hashing algorithm and the type of token
+        - Payload:
+            Information of the user you wish to encode in the token along with token expiry and issue date. Never put sensitive user data in this payload for security reasons.
+            We can make a JWT time-sensitive, i.e. it can become invalid after a certain time. So as long as the token is valid, we can safely assume that the user is logged in.
+        - Signature:
+            A signature is created by wrapping the headers, payload along with a secret key. This makes our JWT secure.
+
+
+# How JWT is created?
+    - The header and the payload are hashed together using a hashing algorithm. JWT supports a lot of common hashing algorithms.
+    - We also have a SECRET key which is hashed along with the header and payload together.
+        It’s just a string that is kept super secure because this is used to decode the encoded information.
+        We never publish it publicly on any repository. => So, we will write it in .env file (JWT_SECRET_KEY=5842868c-34cc-4b6f-b70b-be879ad2e39c)
+    - Now these three things (header, payload and secret key) together when hashed create a Signature, that is added at the end of the encoded header and the payload to create a complete token.
+    - eg. eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRkNTFmZWNiODVmYjk5NWNmOTYxM2IiLCJpYXQiOjE3MjU3OTc3NTksImV4cCI6MTcyNTc5Nzc4OX0._DhEXx1AvEE5Fn5dGkPhEvOpabmqJgZiY7lNl3gLLwM
+        eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9: it is the BASE64 "encoded" version of header
+        eyJ1c2VySWQiOiI2NmRkNTFmZWNiODVmYjk5NWNmOTYxM2IiLCJpYXQiOjE3MjU3OTc3NTksImV4cCI6MTcyNTc5Nzc4OX0: it is the BASE64 "encoded" version of payload. NOTE: this payload shall not contain the sensitive data such as password, because as this is encoded and not encrypted, so anyone who can access this will be able to decode it and can then also access the complete payload including password. So, payload should only contain data which is required to identify the user and should not contain information that is secure
+        _DhEXx1AvEE5Fn5dGkPhEvOpabmqJgZiY7lNl3gLLwM: it is the signature which is generated using the header, payload and a secret
+
+# We will use a library named "jsonwebtokens" to create and verify our jwt tokens.
+    -Install jsonwebtokens from npm
+        npm i jsonwebtokens
+    - Then inside AuthService we’ll create a new function generateToken() and use the jwt.sign function to create a signature. This jwt.sign function takes in three parameters
+        -payload:
+            the object we need to encrypt ({ userId: reqUser._id })
+        -secret:
+            the secret key we’ll use to create the signature (process.env.JWT_SECRET_KEY)
+        -options:
+            other parameters to control the jwt, like, an expiry time for this token. (expiresIn: 30)
+            NOTE: The option "expiresIn" takes in time format as a number or according to https://github.com/vercel/ms library format like 1h, 60m, 6 months etc.
+    -Now accordingly we’ll update the login function to use the token and return it back to the client
+        login = async ({ username, password }) => {
+            const reqUser = await UserServiceInstance.findByUsername(username);
+            if (!(await this.verifyPassword(password, reqUser.password))) {
+            return { isLoggedIn: false };
+            } else {
+            return {
+                isLoggedIn: true,
+                userId: reqUser._id,
+                token: jwt.sign({ userId: reqUser._id }, process.env.JWT_SECRET_KEY, {
+                expiresIn: 30,                  //this token will be expired in 30 seconds; if we don't give time in strings, it will be by default in seconds, so for different time formats we have write in strings. eg. "30h" for 30 hours or "7d" for 7 days etc
+                }),
+            };
+            }
+        };
+
+# But we saw in our example that the token was stored in a cookie and not as bosy of request. So, we'll do it in session9/session9_02
+
+#updated //controllers/auth.controller.js, //services/auth.service.js and //.env
+
+
+
+
+
+
+################################################################################################################################
+##############################################        session9/session9_02        ##############################################
+################################################################################################################################
+
+
+
+# So, to use cookies, let’s first understand cookies and how they work!
+    - Cookies are a way to store data inside a browser, like localStorage, but they provide us more control than just a key-value pair
+        - We can set the cookies with an expiry time for the cookie data
+        - Use the server to set the cookie on the frontend (so that it’s secure, and not accessible by the frontend console.)
+            NOTE: Over the frontend, we can access all the cookies using document.cookie
+            BUT we don't want to show the token in when someone tries to console the cookies using document.cookie. This can be restrained if the cookie is HttpOnly cookie
+
+# Cookie Flow:
+    After the credentials are verified 
+    → The server will generate a JWT token 
+    → But instead of sending it as a JSON, it will send a cookie to the client 
+    → The client will set the cookie inside the browser depending on the request 
+    → And then later use this token with every request that requires authorization.
+
+# Sending a Cookie:
+    - Our res object has a function cookie to set a cookie and send it back with the request.
+            res.cookie("rememberUserToken", AuthServiceInstance.generateJWT(userId)).send({ isLoggedIn, userId, token, error })
+    - The cookie function takes in three parameters
+        cookie name:
+            this will be used to identify the cookie inside the browser. ("rememberUserToken")
+        value:
+            The value of the cookie, here it will be our jwt. (AuthServiceInstance.generateJWT(userId))
+        options:
+            - configuration options for the cookie, such as maxAge (the time after which the cookie will expire).
+                The maxAge here is taken in ms so for 30 seconds → 30 * 1000 milliseconds = 30000 ms
+            - we can also povide httpOnly as true as we don't want our cookie to be accessed using document.cookies
+            - also, we can provide secure as true which will ensure that it can only be accessed at https protocol requests and not at http protocol request. 
+
+# So, let's create a function to generate the cookie in AuthService and modify login accordingly
+    //services/auth.service.js
+        login = async ({ username, password }) => {
+            const reqUser = await UserServiceInstance.findByUsername(username);
+            if (!(await this.verifyPassword(password, reqUser.password))) {
+            return { isLoggedIn: false };
+            } else {
+            return {
+                isLoggedIn: true,
+                userId: reqUser._id,
+            };
+            }
+        };
+        verifyPassword = (plainTextPassword, hashedPassword) =>
+            bcrypt.compare(plainTextPassword, hashedPassword);
+
+        generateJWT = (userId) =>
+            jwt.sign({ userId }, process.env.JWT_SECRET_KEY, {
+            expiresIn: 30,
+            });
+    //controllers/auth.controller.js
+        const postLogin = async (req, res) => {
+        try {
+            const { isLoggedIn, userId, token, error } =
+            await AuthServiceInstance.login(req.body);
+            if (isLoggedIn) {
+            res
+                .cookie("rememberUserToken", AuthServiceInstance.generateJWT(userId), {
+                maxAge: 30000,
+                httpOnly: true,
+                // secure: true,           //we will use this when we want our cookie to be accessible only on https protocol requests. But, for now as we are creating our app on http, we can comment this out for now
+                })
+                .send({ isLoggedIn, userId, token, error });
+            } else {
+            res
+                .status(401)
+                .send({ message: "Either username or password in incorect" });
+            }
+        } catch (error) {
+            res.status(500).send({ message: "Oops!!! SOmething went wrong." }, error);
+        }
+        };
+
+
+# Now, let's run our frontend and try to login using "username" as  "gyanraj", and "password" as "gyanraj@123"
+    - open terminal
+    - cd ./learnNode/session9/session9_02/disfo-frontend
+    - npm start
+  When we try to login, it gives some error as:
+    Access to XMLHttpRequest at 'http://localhost:8082/auth/login' from origin 'http://localhost:8081' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+    We will be studying more abput this error in next session (session9/session9_03)
+
+# updated //controllers/auth.controller.js, //services/auth.service.js 
+
+
+
+
+
+
+################################################################################################################################
+##############################################        session9/session9_03        ##############################################
+################################################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
