@@ -1,3 +1,7 @@
+
+################################################################################################################################
+##############################################        session8/session8_01        ##############################################
+################################################################################################################################
 # In this session, we will be studying:
     - Creating a signup route
     - Hashing Passwords
@@ -6,7 +10,7 @@
 
 # So, for that let us clone a repository: => NOTE: This is a frontend repo and not a starter code for backend
     git clone https://gitlab.crio.do/public_content/node-sprint-sessions/disfo-frontend.git
-  Install the dependencies: npm install -> then run the server: npm start
+  Install the dependencies: npm install -> then run the server: npm start   -> BUT, this will give the error, so from package.json file delete PORT=8081 written in "start" under "script" ("scripts": {    "start": "react-scripts start",    "build": "react-scripts build",    "test": "react-scripts test",    "eject": "react-scripts eject"  }) it will start at port 3000 and not at 8081-> to start at 8081, create a .env file and write PORT=8081 
 
 # Now, we will clone the repository for backend:
     git clone https://gitlab.crio.do/public_content/node-sprint-sessions/disfo
@@ -69,9 +73,9 @@
 
 
 
-<<<----------------------------------------------------------------------------------------------------------------------------->>>
-<<<----------------------------------------------------------------------------------------------------------------------------->>>
-<<<----------------------------------------------------------------------------------------------------------------------------->>>
+################################################################################################################################
+##############################################        session8/session8_02        ##############################################
+################################################################################################################################
 
 
 

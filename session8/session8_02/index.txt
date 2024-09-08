@@ -1,3 +1,7 @@
+
+################################################################################################################################
+##############################################        session8/session8_01        ##############################################
+################################################################################################################################
 # In this session, we will be studying:
     - Creating a signup route
     - Hashing Passwords
@@ -6,7 +10,8 @@
 
 # So, for that let us clone a repository: => NOTE: This is a frontend repo and not a starter code for backend
     git clone https://gitlab.crio.do/public_content/node-sprint-sessions/disfo-frontend.git
-  Install the dependencies: npm install -> then run the server: npm start
+  Install the dependencies: npm install -> then run the server: npm start   -> BUT, this will give the error, so from package.json file delete PORT=8081 written in "start" under "script" ("scripts": {    "start": "react-scripts start",    "build": "react-scripts build",    "test": "react-scripts test",    "eject": "react-scripts eject"  }) it will start at port 3000 and not at 8081-> to start at 8081, create a .env file and write PORT=8081 
+
 
 # Now, we will clone the repository for backend:
     git clone https://gitlab.crio.do/public_content/node-sprint-sessions/disfo
@@ -65,13 +70,13 @@
                 }
 
 
-# created //controllers/auth.controller.js  //routes/auth.routes.js //services/auth.service.js  and updated //models/user.model.js  //validations/user.validation.js
+# created //controllers/auth.controller.js  //routes/auth.routes.js //services/auth.service.js  and updated //models/user.model.js  //validations/user.validator.js
 
 
 
-<<<----------------------------------------------------------------------------------------------------------------------------->>>
-<<<----------------------------------------------------------------------------------------------------------------------------->>>
-<<<----------------------------------------------------------------------------------------------------------------------------->>>
+################################################################################################################################
+##############################################        session8/session8_02        ##############################################
+################################################################################################################################
 
 
 
@@ -81,5 +86,78 @@
 Can you identify a major security threat here?? -> Our password is out in the open! So, the database administrators or backend engineers or anyone with database access can see it.
 => Passwords (or other sensitive information, like credit card numbers etc) are never saved directly without hashing.
 
-So, we need to hash the passwords  (session8/session8_02)
+There are two parts to hashing a password:
+    1. We pass our password string through a Hashing Algorithm.
+    2. To make our hashed password even more unbreakable, we add a “salt” to it.
+
+Finally we store this salt-hashed password in the database. This way it stays secure.
+Next time when a user tries to log in, we simply take the password user has entered 
+    → attach the salt 
+    → hash it again 
+    → and then compare it with the password in our DB.
+If they match, then the user can log in.
+
+
+# Hashing Passwords in NodeJs
+    We shall use a library called as bcrypt that gives us utilities to salt, hash, and verify strings: npm i bcrypt -> hash(data,saltOrRounds) method of bcrypt returns a promise to be either resolved with the encrypted data salt or rejected with an Error 
+        data — The data to be encrypted.
+        saltOrRounds - The salt to be used in encryption. If specified as a number then a salt will be generated with the specified number of rounds and used.
+
+    There are other libraries out there to hash passwords with stronger algorithms, but for simplicity we’ll use bcrypt.
+
+We will add another method inside AuthService named encryptPassword
+bcrypt gives us a promise function to generate a salt named genSalt
+We shall use this salt for hash the password with bcrypt hash method.
+
+We will update our signup method to store hashed password instead of plain passwords.
+
+
+# So, as hashing a password is a business logic, so it should be in service layer and not in controller layer
+
+# updated //services/auth.service.js //controllers/auth.controller.js
+
+
+################################################################################################################################
+##############################################        session8/session8_03        ##############################################
+################################################################################################################################
+
+
+# NOTE that, in //services/user.service.js, we already have a register function as:
+    register = async (user) => {
+        try {
+        const { fullName, email, username } = user;
+        const newUser = new Users({ email, username, fullName });
+        const result = await newUser.save();
+        return result;
+        } catch (error) {
+        throw error;
+        }
+    };
+And in //services/auth.service.js, we again are having a sigup function as:
+    signup = async ({ fullName, username, email, password }) => {
+        const newUser = new User({
+        fullName,
+        username,
+        email,
+        password: await this.generateHashPassword(password),
+        });
+        await newUser.save();
+        return newUser;
+    };
+
+So, instead of having two separate functions, we can use register function of //services/user.service.js, in signup function of //services/auth.service.js
+
+
+################################################################################################################################
+##############################################        session8/session8_04        ##############################################
+################################################################################################################################
+
+
+Once we have created a user, we need to authenticate them: Let’s build a login flow
+
+
+
+
+
+
 
