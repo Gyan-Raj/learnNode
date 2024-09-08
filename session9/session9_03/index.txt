@@ -383,12 +383,38 @@ Once we have created a user, we need to authenticate them: Let’s build a login
 
 
 
+# we saw that we tried to login to the account, we got the following error:
+    Access to XMLHttpRequest at 'http://localhost:8082/auth/login' from origin 'http://localhost:8081' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+
+# Let’s understand what this means!
+    - The web enforces something called the same-origin policy.
+    - By default, we can only access resources that are located at the same origin as the origin of our request! (http://localhost:8082 and http://localhost:808q are two different origins), unless the server responds with some headers (called as CORS headers)
+    - This is done as a security measure so that any website does not send request or receive data from unauthorized websites.
+
+# So, we need to enable the CORS policy, for this:
+    - We need to specify this on the backend that what all origins (or domains) are allowed.
+    - To enable CORS on our backend, we’ll need to use a package called cors that provides a cors() middleware to be used with express.
+        npm i cors
+    - Then in our index.js:
+        const cors = require("cors");
+        app.use(cors());
+
+# Now, let's run our frontend and try to login using "username" as  "gyanraj", and "password" as "gyanraj@123"
+  When we try to login, it gives another error as:
+    Access to XMLHttpRequest at 'http://localhost:8082/auth/login' from origin 'http://localhost:8081' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+    
+  We will be studying more abput this error in next session (session9/session9_04)
+
+# updated //index.js
 
 
 
 
 
 
+################################################################################################################################
+##############################################        session9/session9_04        ##############################################
+################################################################################################################################
 
 
 
