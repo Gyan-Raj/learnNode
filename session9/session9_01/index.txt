@@ -212,6 +212,81 @@ Once we have created a user, we need to authenticate them: Let’s build a login
 
 
 
+# We have successfully logged in the user, however we need to maintain this state of login for the user so that they can continue enjoying the authenticated access
+    - So, to maintain the state of logged in, we can store the userId and a "token" on a server, and everytime user makes a request, we can check for the token in order to maintain the state
+  BUT BUT BUT, what if the server goes down?!!!
+
+# SO, it is not advisable to rely on the server, instead we should have a logic which can maintain the state  => Here comes the JWT (JSON Web Tokens) concept
+
+# The token will be genearated by the server, but the server will not store the cookie, instead it will store it as cookie.
+  So, everytime user makes a new request (say, like a post or download a song, or comment on a blog), the cookie will be sent alongwith the request. => The server will use this cookie and will identify the user and if the user is authenticated, the response will be generated
+  => NOTE that the server is not storing the token, but is still able to verify the token => This is the beauty of JWT   
+
+# A token is generated on the server that contains several information about the user as well as the metadata about the token itself.
+
+# - JSON Web Tokens (JWT) (https://jwt.io/) are the most commonly used method of creating tokens for web applications.
+  - A JWT contains encoded information about the user that helps to identify them in our database.
+  - A JWT is made of three different parts
+        - Header:
+            Object that contains the hashing algorithm and the type of token
+        - Payload:
+            Information of the user you wish to encode in the token along with token expiry and issue date. Never put sensitive user data in this payload for security reasons.
+            We can make a JWT time-sensitive, i.e. it can become invalid after a certain time. So as long as the token is valid, we can safely assume that the user is logged in.
+        - Signature:
+            A signature is created by wrapping the headers, payload along with a secret key. This makes our JWT secure.
+
+
+# How JWT is created?
+    - The header and the payload are hashed together using a hashing algorithm. JWT supports a lot of common hashing algorithms.
+    - We also have a SECRET key which is hashed along with the header and payload together.
+        It’s just a string that is kept super secure because this is used to decode the encoded information.
+        We never publish it publicly on any repository. => So, we will write it in .env file (JWT_SECRET_KEY=5842868c-34cc-4b6f-b70b-be879ad2e39c)
+    - Now these three things (header, payload and secret key) together when hashed create a Signature, that is added at the end of the encoded header and the payload to create a complete token.
+    - eg. eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRkNTFmZWNiODVmYjk5NWNmOTYxM2IiLCJpYXQiOjE3MjU3OTc3NTksImV4cCI6MTcyNTc5Nzc4OX0._DhEXx1AvEE5Fn5dGkPhEvOpabmqJgZiY7lNl3gLLwM
+        eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9: it is the BASE64 "encoded" version of header
+        eyJ1c2VySWQiOiI2NmRkNTFmZWNiODVmYjk5NWNmOTYxM2IiLCJpYXQiOjE3MjU3OTc3NTksImV4cCI6MTcyNTc5Nzc4OX0: it is the BASE64 "encoded" version of payload. NOTE: this payload shall not contain the sensitive data such as password, because as this is encoded and not encrypted, so anyone who can access this will be able to decode it and can then also access the complete payload including password. So, payload should only contain data which is required to identify the user and should not contain information that is secure
+        _DhEXx1AvEE5Fn5dGkPhEvOpabmqJgZiY7lNl3gLLwM: it is the signature which is generated using the header, payload and a secret
+
+# We will use a library named "jsonwebtokens" to create and verify our jwt tokens.
+    -Install jsonwebtokens from npm
+        npm i jsonwebtokens
+    - Then inside AuthService we’ll create a new function generateToken() and use the jwt.sign function to create a signature. This jwt.sign function takes in three parameters
+        -payload:
+            the object we need to encrypt ({ userId: reqUser._id })
+        -secret:
+            the secret key we’ll use to create the signature (process.env.JWT_SECRET_KEY)
+        -options:
+            other parameters to control the jwt, like, an expiry time for this token. (expiresIn: 30)
+            NOTE: The option "expiresIn" takes in time format as a number or according to https://github.com/vercel/ms library format like 1h, 60m, 6 months etc.
+    -Now accordingly we’ll update the login function to use the token and return it back to the client
+        login = async ({ username, password }) => {
+            const reqUser = await UserServiceInstance.findByUsername(username);
+            if (!(await this.verifyPassword(password, reqUser.password))) {
+            return { isLoggedIn: false };
+            } else {
+            return {
+                isLoggedIn: true,
+                userId: reqUser._id,
+                token: jwt.sign({ userId: reqUser._id }, process.env.JWT_SECRET_KEY, {
+                expiresIn: 30,                  //this token will be expired in 30 seconds; if we don't give time in strings, it will be by default in seconds, so for different time formats we have write in strings. eg. "30h" for 30 hours or "7d" for 7 days etc
+                }),
+            };
+            }
+        };
+
+# But we saw in our example that the token was stored in a cookie and not as bosy of request. So, we'll do it in session9/session9_02
+
+#updated //controllers/auth.controller.js, //services/auth.service.js and //.env
+
+
+
+
+
+
+################################################################################################################################
+##############################################        session9/session9_02        ##############################################
+################################################################################################################################
+
 
 
 
