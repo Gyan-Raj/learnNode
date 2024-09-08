@@ -401,7 +401,7 @@ Once we have created a user, we need to authenticate them: Let’s build a login
 
 # Now, let's run our frontend and try to login using "username" as  "gyanraj", and "password" as "gyanraj@123"
   When we try to login, it gives another error as:
-    Access to XMLHttpRequest at 'http://localhost:8082/auth/login' from origin 'http://localhost:8081' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+    Access to XMLHttpRequest at 'http://localhost:8082/auth/login' from origin 'http://localhost:8081' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: The value of the 'Access-Control-Allow-Origin' header in the response must not be the wildcard '*' when the request's credentials mode is 'include'. The credentials mode of requests initiated by the XMLHttpRequest is controlled by the withCredentials attribute.
   Also, if we look into Network tab, we can see two requests being made: one as login request from frontend which gave us CORS error, and another login request which was from backend and was successful (BUT this time with status code as: 204 No Content (we can see this in "Headers")). NOTE the "type" for backend login request is "preflight".
   Also, in Response-Headers, we have 3 new headers:
     access-control-allow-headers:  content-type
@@ -420,6 +420,58 @@ Once we have created a user, we need to authenticate them: Let’s build a login
 ################################################################################################################################
 ##############################################        session9/session9_04        ##############################################
 ################################################################################################################################
+
+
+
+
+
+
+
+# we saw that we tried to login to the account, we got the following error:
+    Access to XMLHttpRequest at 'http://localhost:8082/auth/login' from origin 'http://localhost:8081' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: The value of the 'Access-Control-Allow-Origin' header in the response must not be the wildcard '*' when the request's credentials mode is 'include'. The credentials mode of requests initiated by the XMLHttpRequest is controlled by the withCredentials attribute.
+  This means that when sending credentials from the frontend, we need to be more specific while specifying the origin and headers on the backend, and it cannot be '*' which basically means "allow on all urls"
+
+# So,
+    - If you examine our frontend code, we are sending the request to login with axios along with an option {withCredentials: true} //session9/session9_04/disfo-frontend/src/pages/Login.jsx
+        -NOTE: withCredentials is an option in "axios" (axios internally makes XMLHttpRequest a.k.a. XHR request), which indicates that when a request is sent to a certain url, send cookies alongwith that 
+
+# So, we need to update our cors() middleware
+    - We’ll pass in more specific config on our backend to specify that which domain is allowed. (Which will be our frontend domain.)
+    - We’ll also specify allowed headers
+    - And also tell the backend that we might receive credentials (like we did for frontend) //session9/session9_04/disfo/
+        app.use(
+            cors({
+                origin: `http://${config.workspaceIp}:${process.env.FRONTEND_PORT}`,
+                allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept",
+                credentials: true,
+            })
+        );
+
+
+# Now, let's run our frontend and try to login using "username" as  "gyanraj", and "password" as "gyanraj@123"
+we can check the cookies, everything is running OK (NOTE: our cookie will be removed after 30 seconds as we have set that)
+
+# updated //index.js
+
+
+
+
+################################################################################################################################
+##############################################        session10/session10_01        ##############################################
+################################################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
